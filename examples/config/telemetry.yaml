@@ -1,0 +1,19 @@
+---
+
+enabled: true
+customer_id: 1234567890
+tags: []
+item_datastore:
+  type: dir
+  path: /tmp/telemetry_items
+bundle_datastore:
+  type: dir
+  path: /tmp/telemetry_bundles
+extras:
+  some: thing
+  else:
+    - one
+    - two
+    - three
+  or:
+    maybe: 2024
