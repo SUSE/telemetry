@@ -3,8 +3,22 @@ package client
 import (
 	"log"
 
+	"github.com/SUSE/telemetry/pkg/config"
 	"github.com/SUSE/telemetry/pkg/types"
+	"github.com/SUSE/telemetrylib"
 )
+
+type TelemetryAuth struct {
+	Token      types.TelemetryAuthToken `json:"token"`
+	ExpiryDate types.TelemetryTimeStamp `json:"issueDate"`
+}
+
+type TelemetryClient struct {
+	config  config.Config
+	auth    TelemetryAuth
+	Items   telemetrylib.TelemetryProcessor
+	Bundles telemetrylib.TelemetryProcessor
+}
 
 func Generate(telemetry types.TelemetryType, content []byte, tags types.Tags) error {
 	now := types.Now()

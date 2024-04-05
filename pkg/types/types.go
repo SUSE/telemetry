@@ -46,6 +46,13 @@ func (t *Tags) Set(value string) error {
 	return nil
 }
 
+// TelemetryAuthToken is a string holding an encoded auth token value
+type TelemetryAuthToken string
+
+func (t TelemetryAuthToken) Valid() bool {
+	return t != ""
+}
+
 // TelemetryType is a string of the format "<family>-<stream>-<subtype>"
 type TelemetryType string
 
