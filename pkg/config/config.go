@@ -21,6 +21,7 @@ type Config struct {
 	Tags             []string        `yaml:"tags"`
 	ItemDS           DataStoreConfig `yaml:"item_datastore"`
 	BundleDS         DataStoreConfig `yaml:"bundle_datastore"`
+	ReportDS         DataStoreConfig `yaml:"report_datastore"`
 	Extras           any             `yaml:"extras,omitempty"`
 }
 

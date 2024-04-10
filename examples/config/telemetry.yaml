@@ -10,6 +10,9 @@ item_datastore:
 bundle_datastore:
   type: dir
   path: /tmp/telemetry_bundles
+report_datastore:
+  type: dir
+  path: /tmp/telemetry_reports
 extras:
   some: thing
   else:
