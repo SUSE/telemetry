@@ -10,3 +10,6 @@ item_datastore:
 bundle_datastore:
   type: db
   path: sqlite3:/tmp/telemetry/client/bundlestore.db
+report_datastore:
+  type: db
+  path: sqlite3:/tmp/telemetry/client/reportstore.db
