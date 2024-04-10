@@ -89,6 +89,12 @@ func (t TelemetryTimeStamp) String() string {
 	return t.UTC().Format(time.RFC3339Nano)
 }
 
+func TimeStampFromString(tsString string) (ts TelemetryTimeStamp, err error) {
+	t, err := time.Parse(time.RFC3339Nano, tsString)
+	ts = TelemetryTimeStamp{t}
+	return
+}
+
 func Now() TelemetryTimeStamp {
 	t := TelemetryTimeStamp{time.Now()}
 	return t

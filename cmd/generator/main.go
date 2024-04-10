@@ -11,10 +11,6 @@ import (
 	"github.com/SUSE/telemetry/pkg/types"
 )
 
-const (
-	DEF_CONFIG = "/etc/susetelemetry/config.yaml"
-)
-
 // options is a struct of the options
 type options struct {
 	config    string
@@ -40,13 +36,23 @@ func main() {
 	}
 	fmt.Printf("Config: %+v\n", cfg)
 
+	tc, err := client.NewTelemetryClient(cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = tc.Register()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	for _, jsonFile := range opts.jsonFiles {
 		jsonContent, err := os.ReadFile(jsonFile)
 		if err != nil {
 			log.Fatal(fmt.Errorf("error reading contents of telemetry JSON file: %s", err))
 		}
 
-		err = client.Generate(opts.telemetry, jsonContent, opts.tags)
+		err = tc.Generate(opts.telemetry, jsonContent, opts.tags)
 		if err != nil {
 			log.Fatal(fmt.Errorf("error generating a telemetry data item from JSON file '%s': %s", jsonFile, err))
 		}
@@ -54,7 +60,7 @@ func main() {
 }
 
 func init() {
-	flag.StringVar(&opts.config, "config", DEF_CONFIG, "Path to config file to read")
+	flag.StringVar(&opts.config, "config", client.CONFIG_PATH, "Path to config file to read")
 	flag.BoolVar(&opts.dryrun, "dryrun", false, "Process provided JSON files but do add them to the telemetry staging area.")
 	flag.Var(&opts.tags, "tag", "Optional tags to be associated with the submitted telemetry data")
 	flag.Var(&opts.telemetry, "telemetry", "The type of the telemetry being submitted")

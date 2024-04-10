@@ -1,5 +1,6 @@
 ---
 
+telemetry_base_url: "http://localhost:9999/telemetry"
 enabled: true
 customer_id: 1234567890
 tags: []

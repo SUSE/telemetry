@@ -14,19 +14,24 @@ type DataStoreConfig struct {
 }
 
 type Config struct {
-	cfgPath    string
-	Enabled    bool            `yaml:"enabled"`
-	CustomerID string          `yaml:"customer_id"`
-	Tags       []string        `yaml:"tags"`
-	ItemDS     DataStoreConfig `yaml:"item_datastore"`
-	BundleDS   DataStoreConfig `yaml:"bundle_datastore"`
-	Extras     any             `yaml:"extras,omitempty"`
+	cfgPath          string
+	TelemetryBaseURL string          `yaml:"telemetry_base_url"`
+	Enabled          bool            `yaml:"enabled"`
+	CustomerID       string          `yaml:"customer_id"`
+	Tags             []string        `yaml:"tags"`
+	ItemDS           DataStoreConfig `yaml:"item_datastore"`
+	BundleDS         DataStoreConfig `yaml:"bundle_datastore"`
+	Extras           any             `yaml:"extras,omitempty"`
 }
 
 func NewConfig(cfgFile string) *Config {
 	cfg := &Config{cfgPath: cfgFile}
 
 	return cfg
+}
+
+func (cfg *Config) Path() string {
+	return cfg.cfgPath
 }
 
 func (cfg *Config) Load() error {
