@@ -11,9 +11,9 @@ import (
 	"os"
 
 	"github.com/SUSE/telemetry/pkg/config"
+	telemetrylib "github.com/SUSE/telemetry/pkg/lib"
 	"github.com/SUSE/telemetry/pkg/restapi"
 	"github.com/SUSE/telemetry/pkg/types"
-	"github.com/SUSE/telemetrylib"
 )
 
 const (

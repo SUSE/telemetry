@@ -1,17 +1,17 @@
 module github.com/SUSE/telemetry
 
-go 1.21.0
+go 1.21
 
 replace github.com/SUSE/telemetry => ../telemetry
 
 require (
-	github.com/SUSE/telemetrylib v0.0.0-00010101000000-000000000000
+	github.com/google/uuid v1.6.0
+	github.com/mattn/go-sqlite3 v1.14.22
+	github.com/stretchr/testify v1.9.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
-	github.com/google/uuid v1.6.0 // indirect
-	github.com/mattn/go-sqlite3 v1.14.22 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 )
-
-replace github.com/SUSE/telemetrylib => ../telemetrylib

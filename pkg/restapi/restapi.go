@@ -3,8 +3,8 @@ package restapi
 import (
 	"encoding/json"
 
+	telemetrylib "github.com/SUSE/telemetry/pkg/lib"
 	"github.com/SUSE/telemetry/pkg/types"
-	"github.com/SUSE/telemetrylib"
 )
 
 //
