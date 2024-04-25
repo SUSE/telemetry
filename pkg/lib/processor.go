@@ -31,6 +31,15 @@ type TelemetryProcessor interface {
 		authToken string,
 		tags types.Tags,
 	) (*TelemetryReport, error)
+
+	// Get telemetry data items
+	GetDataItems() ([]TelemetryDataItem, error)
+
+	// Get telemetry bundles
+	GetBundles() ([]TelemetryBundle, error)
+
+	// Get telemetry reports
+	GetReports() ([]TelemetryReport, error)
 }
 
 // implements TelemetryProcessor interface.
@@ -58,6 +67,18 @@ func (p *TelemetryProcessorImpl) BundleCount() (count int, err error) {
 
 func (p *TelemetryProcessorImpl) ReportCount() (count int, err error) {
 	return p.t.ReportCount()
+}
+
+func (p *TelemetryProcessorImpl) GetDataItems() (dataitems []TelemetryDataItem, err error) {
+	return p.t.GetDataItems()
+}
+
+func (p *TelemetryProcessorImpl) GetBundles() (bundles []TelemetryBundle, err error) {
+	return p.t.GetBundles()
+}
+
+func (p *TelemetryProcessorImpl) GetReports() (reports []TelemetryReport, err error) {
+	return p.t.GetReports()
 }
 
 func NewTelemetryProcessor(cfg *config.Config) (TelemetryProcessor, error) {

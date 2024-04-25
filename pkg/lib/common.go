@@ -1,6 +1,7 @@
 package telemetrylib
 
 import (
+	"encoding/json"
 	"log"
 
 	"github.com/SUSE/telemetry/internal/pkg/datastore"
@@ -22,6 +23,15 @@ type TelemetryCommon interface {
 
 	// Get a count of telemetry reports
 	ReportCount() (int, error)
+
+	// Get telemetry data items
+	GetDataItems() ([]TelemetryDataItem, error)
+
+	// Get telemetry bundles
+	GetBundles() ([]TelemetryBundle, error)
+
+	// Get telemetry reports
+	GetReports() ([]TelemetryReport, error)
 }
 
 type TelemetryCommonImpl struct {
@@ -119,4 +129,79 @@ func (t *TelemetryCommonImpl) ReportCount() (count int, err error) {
 	count = len(keys)
 
 	return
+}
+
+func (t *TelemetryCommonImpl) GetDataItems() (dataitems []TelemetryDataItem, err error) {
+
+	keys, err := t.items.List()
+	if err != nil {
+		log.Printf("failed to retrieve list of keys for item store: %s", err.Error())
+		return
+	}
+
+	for _, j := range keys {
+		data, _ := t.items.Get(j)
+		var item TelemetryDataItem
+		err = json.Unmarshal(data, &item)
+		if err != nil {
+			log.Printf("failed to unmarshal data item %q: %s", j, err.Error())
+			return nil, err
+		}
+
+		dataitems = append(dataitems, item)
+
+	}
+
+	return
+
+}
+
+func (t *TelemetryCommonImpl) GetBundles() (bundles []TelemetryBundle, err error) {
+
+	keys, err := t.bundles.List()
+	if err != nil {
+		log.Printf("failed to retrieve list of keys for bundle store: %s", err.Error())
+		return
+	}
+
+	for _, j := range keys {
+		data, _ := t.bundles.Get(j)
+		var bundle TelemetryBundle
+		err = json.Unmarshal(data, &bundle)
+		if err != nil {
+			log.Printf("failed to unmarshal bundle %q: %s", j, err.Error())
+			return nil, err
+		}
+
+		bundles = append(bundles, bundle)
+
+	}
+
+	return
+
+}
+
+func (t *TelemetryCommonImpl) GetReports() (reports []TelemetryReport, err error) {
+
+	keys, err := t.reports.List()
+	if err != nil {
+		log.Printf("failed to retrieve list of keys for report store: %s", err.Error())
+		return
+	}
+
+	for _, j := range keys {
+		data, _ := t.reports.Get(j)
+		var report TelemetryReport
+		err = json.Unmarshal(data, &report)
+		if err != nil {
+			log.Printf("failed to unmarshal report %q: %s", j, err.Error())
+			return nil, err
+		}
+
+		reports = append(reports, report)
+
+	}
+
+	return
+
 }

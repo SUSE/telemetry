@@ -18,6 +18,15 @@ type TelemetryExtractor interface {
 
 	// Extract telemetry data items from bundles in the staging bundle datastore and store the extracted items in the item datastore
 	BundlesToDataItems() error
+
+	// Get telemetry data items
+	GetDataItems() ([]TelemetryDataItem, error)
+
+	// Get telemetry bundles
+	GetBundles() ([]TelemetryBundle, error)
+
+	// Get telemetry reports
+	GetReports() ([]TelemetryReport, error)
 }
 
 // implements TelemetryExtractor interface.
@@ -45,6 +54,18 @@ func (e *TelemetryExtractorImpl) BundleCount() (count int, err error) {
 
 func (e *TelemetryExtractorImpl) ReportCount() (count int, err error) {
 	return e.t.ReportCount()
+}
+
+func (e *TelemetryExtractorImpl) GetDataItems() (dataitems []TelemetryDataItem, err error) {
+	return e.t.GetDataItems()
+}
+
+func (e *TelemetryExtractorImpl) GetBundles() (bundles []TelemetryBundle, err error) {
+	return e.t.GetBundles()
+}
+
+func (e *TelemetryExtractorImpl) GetReports() (reports []TelemetryReport, err error) {
+	return e.t.GetReports()
 }
 
 func NewTelemetryExtractor(cfg *config.Config) (TelemetryExtractor, error) {
@@ -154,7 +175,7 @@ func (e *TelemetryExtractorImpl) BundlesToDataItems() error {
 			iKey := item.Key()
 			log.Printf("adding a data item with ID %s\n", iKey)
 
-			jsonData, err := json.Marshal(bundle)
+			jsonData, err := json.Marshal(item)
 			if err != nil {
 				log.Println("error marshalling dataitem:", err)
 				return err

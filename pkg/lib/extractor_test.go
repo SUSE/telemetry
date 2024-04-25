@@ -116,6 +116,13 @@ func (t *TelemetryExtractorTestSuite) TestExtractor() {
 			reportsCount, _ := extractor.ReportCount()
 			assert.Equal(t.T(), 0, reportsCount)
 
+			/*
+				In order to create a report to be submitted to the extractor, first
+				create 2 dataitems, add those dataitems to a bundle, and create a report
+				with that bundle and then submit the report to the extractor using
+				extractor's AddReport method
+			*/
+
 			// Create 2 dataitems
 			telemetryType := types.TelemetryType("SLE-SERVER-Test")
 			itags1 := types.Tags{types.Tag("ikey1=ivalue1"), types.Tag("ikey2")}
@@ -157,6 +164,13 @@ func (t *TelemetryExtractorTestSuite) TestExtractor() {
 			itemsCount, _ = extractor.DataItemCount()
 			assert.Equal(t.T(), 0, itemsCount)
 
+			bundles := report1.TelemetryBundles
+
+			assert.Equal(t.T(), 1, len(bundles))
+			for i := 0; i < len(bundles); i++ {
+				assert.Equal(t.T(), 2, len(bundles[i].TelemetryDataItems))
+			}
+
 			err = extractor.ReportToBundles()
 			assert.NoError(t.T(), err, "failed to add telemetry bundles to extractor datastore")
 			bundlesCount, _ = extractor.BundleCount()
@@ -166,6 +180,13 @@ func (t *TelemetryExtractorTestSuite) TestExtractor() {
 			itemsCount, _ = extractor.DataItemCount()
 			assert.Equal(t.T(), 0, itemsCount)
 
+			bundles, berr := extractor.GetBundles()
+			assert.NoError(t.T(), berr, "failed to get telemetry bundles from extractor datastore")
+			assert.Equal(t.T(), 1, len(bundles))
+			for i := 0; i < len(bundles); i++ {
+				assert.Equal(t.T(), 2, len(bundles[i].TelemetryDataItems))
+			}
+
 			err = extractor.BundlesToDataItems()
 			assert.NoError(t.T(), err, "failed to add telemetry dataitems to extractor datastore")
 			itemsCount, _ = extractor.DataItemCount()
@@ -174,6 +195,10 @@ func (t *TelemetryExtractorTestSuite) TestExtractor() {
 			assert.Equal(t.T(), 0, bundlesCount)
 			reportsCount, _ = extractor.ReportCount()
 			assert.Equal(t.T(), 0, reportsCount)
+
+			items, ierr := extractor.GetDataItems()
+			assert.NoError(t.T(), ierr, "failed to get telemetry dataitems from extractor datastore")
+			assert.Equal(t.T(), 2, len(items))
 
 			env.cleanup()
 		})
