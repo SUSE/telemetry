@@ -2,6 +2,7 @@ telemetry_base_url: http://localhost:9999/telemetry
 enabled: true
 customer_id: 1234567890
 tags: []
-item_datastore: db|sqlite3:/tmp/telemetry_processor/itemstore.db
-bundle_datastore: memory|processor_bundles
-report_datastore: db|sqlite3:/tmp/telemetry_processor/reportstore.db
+datastores:
+  items: db|sqlite3:/tmp/telemetry_processor/itemstore.db
+  bundles: memory|processor_bundles
+  reports: db|sqlite3:/tmp/telemetry_processor/reportstore.db

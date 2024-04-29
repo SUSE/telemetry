@@ -10,14 +10,19 @@ import (
 
 type Config struct {
 	cfgPath          string
-	TelemetryBaseURL string   `yaml:"telemetry_base_url"`
-	Enabled          bool     `yaml:"enabled"`
-	CustomerID       string   `yaml:"customer_id"`
-	Tags             []string `yaml:"tags"`
-	ItemDS           string   `yaml:"item_datastore"`
-	BundleDS         string   `yaml:"bundle_datastore"`
-	ReportDS         string   `yaml:"report_datastore"`
-	Extras           any      `yaml:"extras,omitempty"`
+	TelemetryBaseURL string           `yaml:"telemetry_base_url"`
+	Enabled          bool             `yaml:"enabled"`
+	CustomerID       string           `yaml:"customer_id"`
+	Tags             []string         `yaml:"tags"`
+	DataStores       DataStoresConfig `yaml:"datastores"`
+	Extras           any              `yaml:"extras,omitempty"`
+}
+
+// Datastore config for staging the data
+type DataStoresConfig struct {
+	ItemDS   string `yaml:"items"`
+	BundleDS string `yaml:"bundles"`
+	ReportDS string `yaml:"reports"`
 }
 
 func NewConfig(cfgFile string) *Config {

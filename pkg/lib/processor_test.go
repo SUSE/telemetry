@@ -46,9 +46,9 @@ func (t *telemetryProcessorTestEnv) cleanup() {
 	}
 
 	if t.cfg != nil {
-		itemDS := strings.Split(t.cfg.ItemDS, "|")
-		bundleDS := strings.Split(t.cfg.BundleDS, "|")
-		reportDS := strings.Split(t.cfg.ReportDS, "|")
+		itemDS := strings.Split(t.cfg.DataStores.ItemDS, "|")
+		bundleDS := strings.Split(t.cfg.DataStores.BundleDS, "|")
+		reportDS := strings.Split(t.cfg.DataStores.ReportDS, "|")
 
 		datastore.CleanAll(itemDS[0], itemDS[1])
 		datastore.CleanAll(bundleDS[0], bundleDS[1])

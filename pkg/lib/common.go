@@ -45,7 +45,7 @@ func (t *TelemetryCommonImpl) setup(cfg *config.Config) (err error) {
 	err = nil
 	// create the telemetry data items data store if not already setup
 	if t.items == nil {
-		itemDS := strings.Split(cfg.ItemDS, "|")
+		itemDS := strings.Split(cfg.DataStores.ItemDS, "|")
 		log.Printf("creating new datastore of type %q, params %q", itemDS[0], itemDS[1])
 
 		t.items, err = datastore.NewDataStore(itemDS[0], itemDS[1])
@@ -58,7 +58,7 @@ func (t *TelemetryCommonImpl) setup(cfg *config.Config) (err error) {
 
 	// create the telemetry bundle data store if not already setup
 	if t.bundles == nil {
-		bundleDS := strings.Split(cfg.BundleDS, "|")
+		bundleDS := strings.Split(cfg.DataStores.BundleDS, "|")
 		log.Printf("creating new datastore of type %q, params %q", bundleDS[0], bundleDS[1])
 
 		t.bundles, err = datastore.NewDataStore(bundleDS[0], bundleDS[1])
@@ -71,7 +71,7 @@ func (t *TelemetryCommonImpl) setup(cfg *config.Config) (err error) {
 
 	// create the telemetry report data store if not already setup
 	if t.reports == nil {
-		reportDS := strings.Split(cfg.ReportDS, "|")
+		reportDS := strings.Split(cfg.DataStores.ReportDS, "|")
 		log.Printf("creating new datastore of type %q, params %q", reportDS[0], reportDS[1])
 
 		t.reports, err = datastore.NewDataStore(reportDS[0], reportDS[1])

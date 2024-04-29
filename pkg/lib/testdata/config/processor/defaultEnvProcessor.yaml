@@ -2,6 +2,7 @@
 enabled: true
 customer_id: 1234567890
 tags: []
-item_datastore: dir|/tmp/telemetry_processor_items
-bundle_datastore: dir|/tmp/telemetry_processor_bundles
-report_datastore: dir|/tmp/telemetry_processor_reports
+datastores:
+  items: dir|/tmp/telemetry_processor_items
+  bundles: dir|/tmp/telemetry_processor_bundles
+  reports: dir|/tmp/telemetry_processor_reports

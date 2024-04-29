@@ -2,6 +2,7 @@ telemetry_base_url: http://localhost:9999/telemetry
 enabled: true
 customer_id: 1234567890
 tags: []
-item_datastore: memory|extractor_items
-bundle_datastore: memory|extractor_bundles
-report_datastore: dir|/tmp/telemetry_extractor_reports
+datastores:
+  items: memory|extractor_items
+  bundles: memory|extractor_bundles
+  reports: dir|/tmp/telemetry_extractor_reports
