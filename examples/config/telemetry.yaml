@@ -4,15 +4,9 @@ telemetry_base_url: "http://localhost:9999/telemetry"
 enabled: true
 customer_id: 1234567890
 tags: []
-item_datastore:
-  type: dir
-  path: /tmp/telemetry_items
-bundle_datastore:
-  type: dir
-  path: /tmp/telemetry_bundles
-report_datastore:
-  type: dir
-  path: /tmp/telemetry_reports
+item_datastore: dir|/tmp/telemetry_items
+bundle_datastore: dir|/tmp/telemetry_bundles
+report_datastore: dir|/tmp/telemetry_reports
 extras:
   some: thing
   else:

@@ -8,21 +8,16 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type DataStoreConfig struct {
-	Type string `yaml:"type"`
-	Path string `yaml:"path"`
-}
-
 type Config struct {
 	cfgPath          string
-	TelemetryBaseURL string          `yaml:"telemetry_base_url"`
-	Enabled          bool            `yaml:"enabled"`
-	CustomerID       string          `yaml:"customer_id"`
-	Tags             []string        `yaml:"tags"`
-	ItemDS           DataStoreConfig `yaml:"item_datastore"`
-	BundleDS         DataStoreConfig `yaml:"bundle_datastore"`
-	ReportDS         DataStoreConfig `yaml:"report_datastore"`
-	Extras           any             `yaml:"extras,omitempty"`
+	TelemetryBaseURL string   `yaml:"telemetry_base_url"`
+	Enabled          bool     `yaml:"enabled"`
+	CustomerID       string   `yaml:"customer_id"`
+	Tags             []string `yaml:"tags"`
+	ItemDS           string   `yaml:"item_datastore"`
+	BundleDS         string   `yaml:"bundle_datastore"`
+	ReportDS         string   `yaml:"report_datastore"`
+	Extras           any      `yaml:"extras,omitempty"`
 }
 
 func NewConfig(cfgFile string) *Config {

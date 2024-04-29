@@ -2,13 +2,7 @@ telemetry_base_url: http://localhost:9999/telemetry
 enabled: true
 customer_id: 1234567890
 tags: []
-item_datastore:
-  type: memory
-  path: extractor_items
-bundle_datastore:
-  type: db
-  path: sqlite3:/tmp/telemetry_extractor/bundlestore.db
-report_datastore:
-  type: db
-  path: sqlite3:/tmp/telemetry_extractor/reportstore.db
+item_datastore: memory|extractor_items
+bundle_datastore: db|sqlite3:/tmp/telemetry_extractor/bundlestore.db
+report_datastore: db|sqlite3:/tmp/telemetry_extractor/reportstore.db
 

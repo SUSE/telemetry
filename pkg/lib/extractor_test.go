@@ -3,6 +3,7 @@ package telemetrylib
 import (
 	"encoding/json"
 	"log"
+	"strings"
 	"testing"
 
 	"github.com/SUSE/telemetry/pkg/config"
@@ -44,8 +45,14 @@ func (t *telemetryExtractorTestEnv) cleanup() {
 	}
 
 	if t.cfg != nil {
-		datastore.CleanAll(t.cfg.ItemDS.Type, t.cfg.ItemDS.Path)
-		datastore.CleanAll(t.cfg.BundleDS.Type, t.cfg.BundleDS.Path)
+
+		itemDS := strings.Split(t.cfg.ItemDS, "|")
+		bundleDS := strings.Split(t.cfg.BundleDS, "|")
+		reportDS := strings.Split(t.cfg.ReportDS, "|")
+
+		datastore.CleanAll(itemDS[0], itemDS[1])
+		datastore.CleanAll(bundleDS[0], bundleDS[1])
+		datastore.CleanAll(reportDS[0], reportDS[1])
 	}
 }
 
