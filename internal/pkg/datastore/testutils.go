@@ -2,10 +2,10 @@ package datastore
 
 import (
 	"database/sql"
-	"math/rand"
 	"os"
 	"strings"
-	"time"
+
+	"github.com/xyproto/randomstring"
 )
 
 func CleanAll(dstype string, dsparams string) {
@@ -43,15 +43,5 @@ func deleteAllRows(dbparams string) error {
 }
 
 func GenerateRandomString(length int) string {
-	const charset = "abcdefghijklmnopqrstuvwxyz" +
-		"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
-	var seededRand *rand.Rand = rand.New(
-		rand.NewSource(time.Now().UnixNano()))
-
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = charset[seededRand.Intn(len(charset))]
-	}
-	return string(b)
+	return randomstring.HumanFriendlyString(length)
 }
