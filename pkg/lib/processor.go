@@ -73,12 +73,20 @@ func (p *TelemetryProcessorImpl) GetDataItems() (dataitems []TelemetryDataItem, 
 	return p.t.GetDataItems()
 }
 
+func (p *TelemetryProcessorImpl) DeleteDataItem(dataItem *TelemetryDataItem) (err error) {
+	return p.t.DeleteDataItem(dataItem)
+}
+
 func (p *TelemetryProcessorImpl) GetBundles() (bundles []TelemetryBundle, err error) {
 	return p.t.GetBundles()
 }
 
 func (p *TelemetryProcessorImpl) GetReports() (reports []TelemetryReport, err error) {
 	return p.t.GetReports()
+}
+
+func (p *TelemetryProcessorImpl) DeleteReport(report *TelemetryReport) (err error) {
+	return p.t.DeleteReport(report)
 }
 
 func NewTelemetryProcessor(cfg *config.Config) (TelemetryProcessor, error) {
@@ -126,6 +134,11 @@ func (p *TelemetryProcessorImpl) GenerateBundle(clientId, customerId string, tag
 	itemKeys, err := p.t.items.List()
 	if err != nil {
 		log.Printf("failed to retrieve list of keys from item store: %s", err.Error())
+		return
+	}
+
+	if len(itemKeys) < 1 {
+		log.Print("no data items to bundle up, skipping")
 		return
 	}
 
@@ -190,6 +203,11 @@ func (p *TelemetryProcessorImpl) GenerateReport(clientId, authToken string, tags
 	bundleKeys, err := p.t.bundles.List()
 	if err != nil {
 		log.Println("failed to retrieve the bundles", err)
+		return
+	}
+
+	if len(bundleKeys) < 1 {
+		log.Print("no bundles available to add to reports, skipping")
 		return
 	}
 

@@ -28,11 +28,17 @@ type TelemetryCommon interface {
 	// Get telemetry data items
 	GetDataItems() ([]TelemetryDataItem, error)
 
+	// Delete a specified telemetry data item from the data items datastore
+	DeleteDataItem(dataItem *TelemetryDataItem) error
+
 	// Get telemetry bundles
 	GetBundles() ([]TelemetryBundle, error)
 
 	// Get telemetry reports
 	GetReports() ([]TelemetryReport, error)
+
+	// Delete a specified telemetry report from the report datastore
+	DeleteReport(report *TelemetryReport) error
 }
 
 type TelemetryCommonImpl struct {
@@ -168,6 +174,10 @@ func (t *TelemetryCommonImpl) GetDataItems() (dataitems []TelemetryDataItem, err
 
 }
 
+func (t *TelemetryCommonImpl) DeleteDataItem(dataItem *TelemetryDataItem) error {
+	return t.items.Delete(dataItem.Key())
+}
+
 func (t *TelemetryCommonImpl) GetBundles() (bundles []TelemetryBundle, err error) {
 
 	keys, err := t.bundles.List()
@@ -216,4 +226,8 @@ func (t *TelemetryCommonImpl) GetReports() (reports []TelemetryReport, err error
 
 	return
 
+}
+
+func (t *TelemetryCommonImpl) DeleteReport(report *TelemetryReport) error {
+	return t.reports.Delete(report.Key())
 }

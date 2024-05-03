@@ -60,12 +60,20 @@ func (e *TelemetryExtractorImpl) GetDataItems() (dataitems []TelemetryDataItem, 
 	return e.t.GetDataItems()
 }
 
+func (e *TelemetryExtractorImpl) DeleteDataItem(dataItem *TelemetryDataItem) (err error) {
+	return e.t.DeleteDataItem(dataItem)
+}
+
 func (e *TelemetryExtractorImpl) GetBundles() (bundles []TelemetryBundle, err error) {
 	return e.t.GetBundles()
 }
 
 func (e *TelemetryExtractorImpl) GetReports() (reports []TelemetryReport, err error) {
 	return e.t.GetReports()
+}
+
+func (e *TelemetryExtractorImpl) DeleteReport(report *TelemetryReport) (err error) {
+	return e.t.DeleteReport(report)
 }
 
 func NewTelemetryExtractor(cfg *config.Config) (TelemetryExtractor, error) {

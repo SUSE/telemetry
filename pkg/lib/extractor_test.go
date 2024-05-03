@@ -143,7 +143,7 @@ func (t *TelemetryExtractorTestSuite) TestExtractor() {
 			`
 			var data map[string]interface{}
 			err = json.Unmarshal([]byte(payload), &data)
-			assert.NoError(t.T(), err, "fnmarshalling of dataitem failed")
+			assert.NoError(t.T(), err, "unmarshalling of dataitem failed")
 			item1 := NewTelemetryDataItem(telemetryType, itags1, data)
 			item2 := NewTelemetryDataItem(telemetryType, itags2, data)
 

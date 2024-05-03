@@ -63,6 +63,11 @@ func ensureInstanceIdExists(instIdPath string) error {
 	return nil
 }
 
+func (tc *TelemetryClient) Processor() telemetrylib.TelemetryProcessor {
+	// may want to just make the processor a public field
+	return tc.processor
+}
+
 func (tc *TelemetryClient) AuthPath() string {
 	// hard coded for now, possibly make a config option
 	return AUTH_PATH
@@ -141,6 +146,58 @@ func (tc *TelemetryClient) saveTelemetryAuth() (err error) {
 	if err != nil {
 		log.Printf("failed to write JSON marshalled TelemetryAuth to %q: %s", authPath, err.Error())
 	}
+
+	return
+}
+
+func (tc *TelemetryClient) submitReport(report *telemetrylib.TelemetryReport) (err error) {
+	// submit a telemetry report
+	var trReq restapi.TelemetryReportRequest
+	trReq.TelemetryReport = *report
+	reqBodyJSON, err := json.Marshal(&trReq)
+	if err != nil {
+		log.Printf("failed to JSON marshal trReq: %s", err.Error())
+		return
+	}
+
+	reqUrl := tc.cfg.TelemetryBaseURL + "/report"
+	reqBuf := bytes.NewBuffer(reqBodyJSON)
+	req, err := http.NewRequest("POST", reqUrl, reqBuf)
+	if err != nil {
+		log.Printf("failed to create new HTTP request for telemetry report: %s", err.Error())
+		return
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("X-AuthToken", string(tc.auth.Token))
+
+	httpClient := http.DefaultClient
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		log.Printf("failed to HTTP POST telemetry report request: %s", err.Error())
+		return
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("failed to read telemetry report response body: %s", err.Error())
+		return
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		err = fmt.Errorf("telemetry report failed: %s", string(respBody))
+		return
+	}
+
+	var trResp restapi.TelemetryReportResponse
+	err = json.Unmarshal(respBody, &trResp)
+	if err != nil {
+		log.Printf("failed to JSON unmarshal telemetry report response body content: %s", err.Error())
+		return
+	}
+
+	log.Printf("Successfully submitted report %q: processing %q", report.Key(), trResp.ProcessingInfo())
 
 	return
 }
@@ -225,29 +282,52 @@ func (tc *TelemetryClient) Register() (err error) {
 }
 
 func (tc *TelemetryClient) Generate(telemetry types.TelemetryType, content []byte, tags types.Tags) error {
-	now := types.Now()
-
 	// Add telemetry data item to DataItem data store
-	log.Printf("Generated Telemetry:\n  TimeStamp: %s\n  Name: %q\n  Content: %+q\n  Tags: %v\n",
-		now, telemetry, content, tags)
+	log.Printf("Generated Telemetry: Name: %q, Tags: %v, Content: %s\n",
+		telemetry, tags, content)
+	tc.processor.AddData(telemetry, content, tags)
 
 	return nil
 }
 
-func (tc *TelemetryClient) Bundle(tags types.Tags) error {
-	now := types.Now()
-
+func (tc *TelemetryClient) CreateBundles(tags types.Tags) error {
 	// Bundle existing telemetry data items found in DataItem data store into one or more bundles in the Bundle data store
-	log.Printf("Bundle:\n  TimeStamp: %s\n  Tags: %v\n", now, tags)
+	log.Printf("Bundle: Tags: %v", tags)
+	tc.processor.GenerateBundle(fmt.Sprintf("%x", tc.auth.ClientId), tc.cfg.CustomerID, tags)
 
 	return nil
 }
 
-func (tc *TelemetryClient) Submit(tags types.Tags) error {
-	now := types.Now()
+func (tc *TelemetryClient) CreateReports(tags types.Tags) (err error) {
+	// Generate reports from available bundles
+	log.Printf("CreateReports: Tags: %v", tags)
+	tc.processor.GenerateReport(fmt.Sprintf("%x", tc.auth.ClientId), string(tc.auth.Token), tags)
 
-	// Submit existing telemetry bundles found in Bundle data store as one or more telemetry reports
-	log.Printf("Submit:\n  TimeStamp: %s\n  Tags: %v\n", now, tags)
+	return
+}
+
+func (tc *TelemetryClient) Submit() (err error) {
+	// fail if the client is not registered
+	err = tc.loadTelemetryAuth()
+	if err != nil {
+		return
+	}
+
+	// retrieve available reports
+	reports, err := tc.processor.GetReports()
+	if err != nil {
+		return
+	}
+
+	// submit each available report
+	for _, report := range reports {
+		if err := tc.submitReport(&report); err != nil {
+			return fmt.Errorf("failed to submit report %q: %s", report.Key(), err.Error())
+		}
+
+		// delete the successfully submitted report
+		tc.processor.DeleteReport(&report)
+	}
 
 	return nil
 }

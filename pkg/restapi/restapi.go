@@ -2,6 +2,7 @@ package restapi
 
 import (
 	"encoding/json"
+	"fmt"
 
 	telemetrylib "github.com/SUSE/telemetry/pkg/lib"
 	"github.com/SUSE/telemetry/pkg/types"
@@ -69,4 +70,8 @@ func (t *TelemetryReportResponse) String() string {
 	bytes, _ := json.Marshal(t)
 
 	return string(bytes)
+}
+
+func (t *TelemetryReportResponse) ProcessingInfo() string {
+	return fmt.Sprintf("%x@%s", t.ProcessingId, t.ProcessedAt)
 }
