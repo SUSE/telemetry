@@ -45,10 +45,10 @@ type TelemetryProcessor interface {
 // implements TelemetryProcessor interface.
 type TelemetryProcessorImpl struct {
 	t   TelemetryCommonImpl
-	cfg *config.Config
+	cfg *config.DataStoresConfig
 }
 
-func (p *TelemetryProcessorImpl) setup(*config.Config) (err error) {
+func (p *TelemetryProcessorImpl) setup(*config.DataStoresConfig) (err error) {
 	err = p.t.setup(p.cfg)
 	return
 }
@@ -89,7 +89,7 @@ func (p *TelemetryProcessorImpl) DeleteReport(report *TelemetryReport) (err erro
 	return p.t.DeleteReport(report)
 }
 
-func NewTelemetryProcessor(cfg *config.Config) (TelemetryProcessor, error) {
+func NewTelemetryProcessor(cfg *config.DataStoresConfig) (TelemetryProcessor, error) {
 	log.Printf("NewTelemetryProcessor(%+v)", cfg)
 	p := TelemetryProcessorImpl{cfg: cfg}
 

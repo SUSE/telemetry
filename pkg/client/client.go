@@ -38,7 +38,7 @@ type TelemetryClient struct {
 
 func NewTelemetryClient(cfg *config.Config) (tc *TelemetryClient, err error) {
 	tc = &TelemetryClient{cfg: cfg}
-	tc.processor, err = telemetrylib.NewTelemetryProcessor(cfg)
+	tc.processor, err = telemetrylib.NewTelemetryProcessor(&cfg.DataStores)
 	return
 }
 

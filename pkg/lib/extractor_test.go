@@ -32,7 +32,7 @@ func (t *telemetryExtractorTestEnv) setup() {
 	if err != nil {
 		log.Fatal(err.Error())
 	}
-	Extractor, err := NewTelemetryExtractor(t.cfg)
+	Extractor, err := NewTelemetryExtractor(&t.cfg.DataStores)
 	if err != nil {
 		log.Fatalf("failed to setup telemetry Extractor for config %q: %s", t.cfgPath, err.Error())
 	}
@@ -178,7 +178,7 @@ func (t *TelemetryExtractorTestSuite) TestExtractor() {
 				assert.Equal(t.T(), 2, len(bundles[i].TelemetryDataItems))
 			}
 
-			err = extractor.ReportToBundles()
+			err = extractor.ReportsToBundles()
 			assert.NoError(t.T(), err, "failed to add telemetry bundles to extractor datastore")
 			bundlesCount, _ = extractor.BundleCount()
 			assert.Equal(t.T(), 1, bundlesCount)
@@ -206,6 +206,11 @@ func (t *TelemetryExtractorTestSuite) TestExtractor() {
 			items, ierr := extractor.GetDataItems()
 			assert.NoError(t.T(), ierr, "failed to get telemetry dataitems from extractor datastore")
 			assert.Equal(t.T(), 2, len(items))
+
+			ierr = extractor.DeleteDataItem(&items[0])
+			assert.NoError(t.T(), ierr, "failed to delete telemetry dataitems from extractor datastore")
+			itemsCount, _ = extractor.DataItemCount()
+			assert.Equal(t.T(), 1, itemsCount)
 
 			env.cleanup()
 		})

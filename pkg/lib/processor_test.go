@@ -33,7 +33,7 @@ func (t *telemetryProcessorTestEnv) setup() {
 	if err != nil {
 		log.Fatal(err.Error())
 	}
-	processor, err := NewTelemetryProcessor(t.cfg)
+	processor, err := NewTelemetryProcessor(&t.cfg.DataStores)
 	if err != nil {
 		log.Fatalf("failed to setup telemetry processor for config %q: %s", t.cfgPath, err.Error())
 	}

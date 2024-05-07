@@ -13,8 +13,11 @@ type TelemetryExtractor interface {
 	// Add Report to staging report datastore
 	AddReport(report *TelemetryReport) error
 
+	// Add Report to staging report datastore
+	DeleteDataItem(dataItem *TelemetryDataItem) error
+
 	// Extract bundles from reports in the staging report datasore and store the extracted bundles in staging bundle datastore
-	ReportToBundles() error
+	ReportsToBundles() error
 
 	// Extract telemetry data items from bundles in the staging bundle datastore and store the extracted items in the item datastore
 	BundlesToDataItems() error
@@ -32,10 +35,10 @@ type TelemetryExtractor interface {
 // implements TelemetryExtractor interface.
 type TelemetryExtractorImpl struct {
 	t   TelemetryCommonImpl
-	cfg *config.Config // this will be server side configuration
+	cfg *config.DataStoresConfig // this will be server side configuration
 }
 
-func (e *TelemetryExtractorImpl) setup(*config.Config) (err error) {
+func (e *TelemetryExtractorImpl) setup(*config.DataStoresConfig) (err error) {
 	err = e.t.setup(e.cfg)
 	return
 }
@@ -76,7 +79,7 @@ func (e *TelemetryExtractorImpl) DeleteReport(report *TelemetryReport) (err erro
 	return e.t.DeleteReport(report)
 }
 
-func NewTelemetryExtractor(cfg *config.Config) (TelemetryExtractor, error) {
+func NewTelemetryExtractor(cfg *config.DataStoresConfig) (TelemetryExtractor, error) {
 	log.Printf("NewTelemetryExtractor(%+v)", cfg)
 	e := TelemetryExtractorImpl{cfg: cfg}
 
@@ -104,7 +107,7 @@ func (e *TelemetryExtractorImpl) AddReport(report *TelemetryReport) (err error) 
 	return nil
 }
 
-func (e *TelemetryExtractorImpl) ReportToBundles() error {
+func (e *TelemetryExtractorImpl) ReportsToBundles() error {
 
 	// list all the reports in the report datastore
 	reportKeys, err := e.t.reports.List()
