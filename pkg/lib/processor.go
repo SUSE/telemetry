@@ -81,6 +81,10 @@ func (p *TelemetryProcessorImpl) GetBundles() (bundles []TelemetryBundle, err er
 	return p.t.GetBundles()
 }
 
+func (p *TelemetryProcessorImpl) DeleteBundle(bundle *TelemetryBundle) (err error) {
+	return p.t.DeleteBundle(bundle)
+}
+
 func (p *TelemetryProcessorImpl) GetReports() (reports []TelemetryReport, err error) {
 	return p.t.GetReports()
 }

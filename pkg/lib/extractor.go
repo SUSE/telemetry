@@ -13,7 +13,10 @@ type TelemetryExtractor interface {
 	// Add Report to staging report datastore
 	AddReport(report *TelemetryReport) error
 
-	// Add Report to staging report datastore
+	// Delete bundle from bundle datastore
+	DeleteBundle(bundle *TelemetryBundle) error
+
+	// Delete data item from item datastore
 	DeleteDataItem(dataItem *TelemetryDataItem) error
 
 	// Extract bundles from reports in the staging report datasore and store the extracted bundles in staging bundle datastore
@@ -65,6 +68,10 @@ func (e *TelemetryExtractorImpl) GetDataItems() (dataitems []TelemetryDataItem, 
 
 func (e *TelemetryExtractorImpl) DeleteDataItem(dataItem *TelemetryDataItem) (err error) {
 	return e.t.DeleteDataItem(dataItem)
+}
+
+func (e *TelemetryExtractorImpl) DeleteBundle(bundle *TelemetryBundle) (err error) {
+	return e.t.DeleteBundle(bundle)
 }
 
 func (e *TelemetryExtractorImpl) GetBundles() (bundles []TelemetryBundle, err error) {

@@ -34,6 +34,9 @@ type TelemetryCommon interface {
 	// Get telemetry bundles
 	GetBundles() ([]TelemetryBundle, error)
 
+	// Delete a specified telemetry report from the report datastore
+	DeleteBundle(report *TelemetryBundle) error
+
 	// Get telemetry reports
 	GetReports() ([]TelemetryReport, error)
 
@@ -176,6 +179,10 @@ func (t *TelemetryCommonImpl) GetDataItems() (dataitems []TelemetryDataItem, err
 
 func (t *TelemetryCommonImpl) DeleteDataItem(dataItem *TelemetryDataItem) error {
 	return t.items.Delete(dataItem.Key())
+}
+
+func (t *TelemetryCommonImpl) DeleteBundle(bundle *TelemetryBundle) error {
+	return t.items.Delete(bundle.Key())
 }
 
 func (t *TelemetryCommonImpl) GetBundles() (bundles []TelemetryBundle, err error) {
