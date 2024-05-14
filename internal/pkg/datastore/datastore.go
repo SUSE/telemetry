@@ -236,7 +236,6 @@ func (dbs *DatabaseStore) List() ([]string, error) {
 	// Parse and print JSON data
 	for rows.Next() {
 		var key string
-		log.Println("reading a row")
 		err := rows.Scan(&key)
 		if err != nil {
 			log.Fatal(err)
