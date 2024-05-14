@@ -293,7 +293,7 @@ func (tc *TelemetryClient) Generate(telemetry types.TelemetryType, content []byt
 func (tc *TelemetryClient) CreateBundles(tags types.Tags) error {
 	// Bundle existing telemetry data items found in DataItem data store into one or more bundles in the Bundle data store
 	log.Printf("Bundle: Tags: %v", tags)
-	tc.processor.GenerateBundle(fmt.Sprintf("%x", tc.auth.ClientId), tc.cfg.CustomerID, tags)
+	tc.processor.GenerateBundle(tc.auth.ClientId, tc.cfg.CustomerID, tags)
 
 	return nil
 }

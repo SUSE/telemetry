@@ -20,7 +20,7 @@ type TelemetryProcessor interface {
 
 	// Generate telemetry bundle
 	GenerateBundle(
-		clientId,
+		clientId int64,
 		customerId string,
 		tags types.Tags,
 	) (*TelemetryBundle, error)
@@ -131,7 +131,7 @@ func (p *TelemetryProcessorImpl) AddData(telemetry types.TelemetryType, marshale
 	return
 }
 
-func (p *TelemetryProcessorImpl) GenerateBundle(clientId, customerId string, tags types.Tags) (bundle *TelemetryBundle, err error) {
+func (p *TelemetryProcessorImpl) GenerateBundle(clientId int64, customerId string, tags types.Tags) (bundle *TelemetryBundle, err error) {
 
 	b := NewTelemetryBundle(clientId, customerId, tags)
 

@@ -149,7 +149,7 @@ func (t *TelemetryExtractorTestSuite) TestExtractor() {
 
 			// Create 1 bundle
 			btags1 := types.Tags{types.Tag("bkey1=bvalue1"), types.Tag("bkey2")}
-			bundle1 := NewTelemetryBundle("client id", "customer id", btags1)
+			bundle1 := NewTelemetryBundle(1, "customer id", btags1)
 
 			// add the two items to the bundle
 			bundle1.TelemetryDataItems = append(bundle1.TelemetryDataItems, *item1)

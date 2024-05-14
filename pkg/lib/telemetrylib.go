@@ -53,7 +53,7 @@ type TelemetryBundle struct {
 	Footer             TelemetryBundleFooter `json:"footer"`
 }
 
-func NewTelemetryBundle(clientId, customerId string, tags types.Tags) *TelemetryBundle {
+func NewTelemetryBundle(clientId int64, customerId string, tags types.Tags) *TelemetryBundle {
 	tb := new(TelemetryBundle)
 
 	// fill in header fields
@@ -78,7 +78,7 @@ func (tb *TelemetryBundle) Key() string {
 type TelemetryBundleHeader struct {
 	BundleId          string   `json:"bundleId"`
 	BundleTimeStamp   string   `json:"bundleTimeStamp"`
-	BundleClientId    string   `json:"bundleClientId"`
+	BundleClientId    int64    `json:"bundleClientId"`
 	BundleCustomerId  string   `json:"buncleCustomerId"`
 	BundleAnnotations []string `json:"bundleAnnotations"`
 }

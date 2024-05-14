@@ -136,7 +136,7 @@ func (t *TelemetryProcessorTestSuite) TestCreateBundle() {
 	}
 
 	btags := types.Tags{types.Tag("key1=value1"), types.Tag("key2")}
-	b, berr := telmetryprocessor.GenerateBundle("client id", "customer id", btags)
+	b, berr := telmetryprocessor.GenerateBundle(1, "customer id", btags)
 	if berr != nil {
 		log.Printf("Failed to create the bundle")
 		t.Fail("Test failed to create the bundle")
@@ -202,7 +202,7 @@ func (t *TelemetryProcessorTestSuite) TestReport() {
 			assert.Equal(t.T(), 5, itemsCount)
 
 			btags := types.Tags{types.Tag("key1=value1"), types.Tag("key2")}
-			bundle, berr := telemetryprocessor.GenerateBundle("client id", "customer id", btags)
+			bundle, berr := telemetryprocessor.GenerateBundle(1, "customer id", btags)
 			if berr != nil {
 				log.Printf("Failed to create the bundle")
 				t.Fail("Test failed to create the bundle")
@@ -215,7 +215,7 @@ func (t *TelemetryProcessorTestSuite) TestReport() {
 			assert.Equal(t.T(), 5, itemsCount)
 
 			btags1 := types.Tags{types.Tag("key3=value3"), types.Tag("key4")}
-			bundle1, berr := telemetryprocessor.GenerateBundle("client id", "customer id", btags1)
+			bundle1, berr := telemetryprocessor.GenerateBundle(1, "customer id", btags1)
 			if berr != nil {
 				log.Printf("Failed to create the bundle")
 				t.Fail("Test failed to create the bundle")
