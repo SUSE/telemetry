@@ -1,8 +1,0 @@
-telemetry_base_url: http://localhost:9999/telemetry
-enabled: true
-customer_id: 1234567890
-tags: []
-datastores:
-  items: dir|/tmp/telemetry_extractor_items
-  bundles: dir|/tmp/telemetry_extractor_bundles
-  reports: db|sqlite3:/tmp/telemetry_extractor/reportstore.db

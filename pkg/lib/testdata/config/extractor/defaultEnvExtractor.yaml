@@ -3,6 +3,6 @@ enabled: true
 customer_id: 1234567890
 tags: []
 datastores:
-  items: dir|/tmp/telemetry_extracted_items
-  bundles: dir|/tmp/telemetry_extracted_bundles
-  reports: dir|/tmp/telemetry_extracted_reports
+  items: sqlite3:/tmp/telemetry_extractor/itemstore.db
+  bundles: sqlite3:/tmp/telemetry_extractor/bundlestore.db
+  reports: sqlite3:/tmp/telemetry_extractor/reportstore.db

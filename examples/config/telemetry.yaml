@@ -1,18 +1,17 @@
----
 
 telemetry_base_url: "http://localhost:9999/telemetry"
 enabled: true
 customer_id: 1234567890
 tags: []
 datastores:
-  items: dir|/tmp/telemetry_items
-  bundles: dir|/tmp/telemetry_bundles
-  reports: dir|/tmp/telemetry_reports
+  items: sqlite3:/tmp/telemetry/client/itemstore.db
+  bundles: sqlite3:/tmp/telemetry/client/bundlestore.db
+  reports: sqlite3:/tmp/telemetry/client/reportstore.db
 extras:
   some: thing
   else:
-    - one
-    - two
-    - three
+  - one
+  - two
+  - three
   or:
     maybe: 2024

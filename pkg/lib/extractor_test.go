@@ -3,7 +3,6 @@ package telemetrylib
 import (
 	"encoding/json"
 	"log"
-	"strings"
 	"testing"
 
 	"github.com/SUSE/telemetry/pkg/config"
@@ -20,23 +19,25 @@ type telemetryExtractorTestEnv struct {
 	telemetryExtractor TelemetryExtractor
 }
 
-func NewExtractorTestEnv(cfgFile string) *telemetryExtractorTestEnv {
+func NewExtractorTestEnv(cfgFile string) (*telemetryExtractorTestEnv, error) {
 	t := telemetryExtractorTestEnv{cfgPath: cfgFile}
-	t.setup()
-	return &t
+	err := t.setup()
+	return &t, err
 }
 
-func (t *telemetryExtractorTestEnv) setup() {
+func (t *telemetryExtractorTestEnv) setup() (err error) {
 	t.cfg = config.NewConfig(t.cfgPath)
-	err := t.cfg.Load()
+	err = t.cfg.Load()
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Print(err.Error())
 	}
 	Extractor, err := NewTelemetryExtractor(&t.cfg.DataStores)
 	if err != nil {
-		log.Fatalf("failed to setup telemetry Extractor for config %q: %s", t.cfgPath, err.Error())
+		log.Printf("failed to setup telemetry Extractor for config %q: %s", t.cfgPath, err.Error())
+		return
 	}
 	t.telemetryExtractor = Extractor
+	return
 }
 
 func (t *telemetryExtractorTestEnv) cleanup() {
@@ -45,14 +46,13 @@ func (t *telemetryExtractorTestEnv) cleanup() {
 	}
 
 	if t.cfg != nil {
+		itemDS := t.cfg.DataStores.ItemDS
+		bundleDS := t.cfg.DataStores.BundleDS
+		reportDS := t.cfg.DataStores.ReportDS
 
-		itemDS := strings.Split(t.cfg.DataStores.ItemDS, "|")
-		bundleDS := strings.Split(t.cfg.DataStores.BundleDS, "|")
-		reportDS := strings.Split(t.cfg.DataStores.ReportDS, "|")
-
-		datastore.CleanAll(itemDS[0], itemDS[1])
-		datastore.CleanAll(bundleDS[0], bundleDS[1])
-		datastore.CleanAll(reportDS[0], reportDS[1])
+		datastore.CleanAll(itemDS)
+		datastore.CleanAll(bundleDS)
+		datastore.CleanAll(reportDS)
 	}
 }
 
@@ -66,7 +66,7 @@ func (t *TelemetryExtractorTestSuite) TearDownSuite() {
 }
 
 func (t *TelemetryExtractorTestSuite) SetupTest() {
-	t.defaultEnv = NewExtractorTestEnv("./testdata/config/extractor/defaultEnvExtractor.yaml")
+	t.defaultEnv, _ = NewExtractorTestEnv("./testdata/config/extractor/defaultEnvExtractor.yaml")
 	t.defaultEnv.cleanup()
 }
 
@@ -80,33 +80,7 @@ func (t *TelemetryExtractorTestSuite) TestExtractor() {
 	tests := []struct {
 		cfgPath string
 	}{
-		{"./testdata/config/extractor/itemdb_bundledb_reportfile_Env.yaml"},
-		{"./testdata/config/extractor/itemdb_bundlefile_reportfile_Env.yaml"},
-		{"./testdata/config/extractor/itemdb_bundlemem_reportfile_Env.yaml"},
-		{"./testdata/config/extractor/itemfile_bundledb_reportfile_Env.yaml"},
-		{"./testdata/config/extractor/itemfile_bundlefile_reportfile_Env.yaml"},
-		{"./testdata/config/extractor/itemfile_bundlemem_reportfile_Env.yaml"},
-		{"./testdata/config/extractor/itemmem_bundledb_reportfile_Env.yaml"},
-		{"./testdata/config/extractor/itemmem_bundlefile_reportfile_Env.yaml"},
-		{"./testdata/config/extractor/itemmem_bundlemem_reportfile_Env.yaml"},
-		{"./testdata/config/extractor/itemdb_bundledb_reportdb_Env.yaml"},
-		{"./testdata/config/extractor/itemdb_bundlefile_reportdb_Env.yaml"},
-		{"./testdata/config/extractor/itemdb_bundlemem_reportdb_Env.yaml"},
-		{"./testdata/config/extractor/itemfile_bundledb_reportdb_Env.yaml"},
-		{"./testdata/config/extractor/itemfile_bundlefile_reportdb_Env.yaml"},
-		{"./testdata/config/extractor/itemfile_bundlemem_reportdb_Env.yaml"},
-		{"./testdata/config/extractor/itemmem_bundledb_reportdb_Env.yaml"},
-		{"./testdata/config/extractor/itemmem_bundlefile_reportdb_Env.yaml"},
-		{"./testdata/config/extractor/itemmem_bundlemem_reportdb_Env.yaml"},
-		{"./testdata/config/extractor/itemdb_bundledb_reportmem_Env.yaml"},
-		{"./testdata/config/extractor/itemdb_bundlefile_reportmem_Env.yaml"},
-		{"./testdata/config/extractor/itemdb_bundlemem_reportmem_Env.yaml"},
-		{"./testdata/config/extractor/itemfile_bundledb_reportmem_Env.yaml"},
-		{"./testdata/config/extractor/itemfile_bundlefile_reportmem_Env.yaml"},
-		{"./testdata/config/extractor/itemfile_bundlemem_reportmem_Env.yaml"},
-		{"./testdata/config/extractor/itemmem_bundledb_reportmem_Env.yaml"},
-		{"./testdata/config/extractor/itemmem_bundlefile_reportmem_Env.yaml"},
-		{"./testdata/config/extractor/itemmem_bundlemem_reportmem_Env.yaml"},
+		{"./testdata/config/extractor/defaultEnvExtractor.yaml"},
 	}
 
 	for _, tt := range tests {

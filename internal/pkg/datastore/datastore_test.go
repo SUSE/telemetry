@@ -4,28 +4,21 @@ import (
 	"os"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
 )
 
 type DataStorerTestSuite struct {
 	suite.Suite
 	datastorer DataStorer
-	dir        string
 	db         string
-	mem        string
 }
 
 func (t *DataStorerTestSuite) SetupSuite() {
-	t.dir = "/tmp/datastore"
 	t.db = "sqlite3:/tmp/datastore.db"
-	t.mem = "datastorer"
 }
 
 func (t *DataStorerTestSuite) TearDownSuite() {
-	CleanAll("dir", t.dir)
-	CleanAll("db", t.db)
-	CleanAll("mem", t.mem)
+	CleanAll(t.db)
 }
 
 /*
@@ -36,65 +29,52 @@ storage mechanisms.
 
 func (t *DataStorerTestSuite) TestAddGetDeleteList() {
 
-	tests := []struct {
-		storeType   string
-		storeParams string
-	}{
-		{"dir", t.dir},
-		{"memory", t.mem},
-		{"db", t.db},
-	}
+	CleanAll(t.db)
+	key := GenerateRandomString(10)
+	value := "test"
 
-	for _, tt := range tests {
-		t.Run("validating storage mechanism of type "+tt.storeType, func() {
+	dataStorer, err := NewDatabaseStore(t.db)
+	t.NoError(err)
 
-			CleanAll(tt.storeType, tt.storeParams)
-			key := GenerateRandomString(10)
-			value := "test"
+	t.datastorer = dataStorer
 
-			dataStorer, err := NewDataStore(tt.storeType, tt.storeParams)
-			t.NoError(err)
+	// test add method
+	err = t.datastorer.Add(key, []byte(value))
+	t.NoError(err)
 
-			t.datastorer = dataStorer
+	// test get method
+	v, err := t.datastorer.Get(key)
+	t.NoError(err)
+	t.Equal(value, string(v))
 
-			// test add method
-			err = t.datastorer.Add(key, []byte(value))
-			t.NoError(err)
+	//test delete method
+	err = t.datastorer.Delete(key)
+	t.NoError(err)
 
-			// test get method
-			v, err := t.datastorer.Get(key)
-			t.NoError(err)
-			t.Equal(value, string(v))
+	//test get again after deletion
+	v, _ = t.datastorer.Get(key)
+	t.Nil(v)
 
-			//test delete method
-			err = t.datastorer.Delete(key)
-			t.NoError(err)
+	// test list
+	key1 := GenerateRandomString(10)
+	key2 := GenerateRandomString(10)
 
-			//test get again after deletion
-			v, _ = t.datastorer.Get(key)
-			t.Nil(v)
+	err = t.datastorer.Add(key1, []byte(value))
+	t.NoError(err)
+	err = t.datastorer.Add(key2, []byte(value))
+	t.NoError(err)
 
-			// test list
-			key1 := GenerateRandomString(10)
-			key2 := GenerateRandomString(10)
+	arr, err := t.datastorer.List()
+	t.NoError(err)
+	t.Equal(2, len(arr))
+	t.Contains(arr, key1)
+	t.Contains(arr, key2)
 
-			err = t.datastorer.Add(key1, []byte(value))
-			t.NoError(err)
-			err = t.datastorer.Add(key2, []byte(value))
-			t.NoError(err)
+	CleanAll(t.db)
 
-			arr, err := t.datastorer.List()
-			t.NoError(err)
-			t.Equal(2, len(arr))
-			t.Contains(arr, key1)
-			t.Contains(arr, key2)
-
-			CleanAll(tt.storeType, tt.storeParams)
-
-		})
-	}
 }
 
+/*
 func (t *DataStorerTestSuite) TestUnsupported() {
 	//Test unsupported datastore
 	ds, err := NewDataStore("unsupported", "/tmp/datastore")
@@ -115,6 +95,7 @@ func (t *DataStorerTestSuite) TestUnsupportedDatabase() {
 	t.Error(err)
 	t.Nil(ds)
 }
+*/
 
 func (t *DataStorerTestSuite) TestDatabaseWriteError() {
 	//Test database write error
@@ -122,38 +103,11 @@ func (t *DataStorerTestSuite) TestDatabaseWriteError() {
 	f, _ := os.Create(db)
 	os.Chmod(db, 0444)
 	defer f.Close()
-	ds, err := NewDataStore("db", "sqlite3:"+db)
+	ds, err := NewDatabaseStore("sqlite3:" + db)
 	t.Error(err)
 	t.Nil(ds)
 
 	os.Remove(db)
-}
-
-func (t *DataStorerTestSuite) TestDeleteOnNonExistingFile() {
-	//Test Delete multiple times
-
-	CleanAll("dir", t.dir)
-	key := uuid.New().String()
-	value := "test"
-
-	dataStorer, err := NewDataStore("dir", t.dir)
-	t.NoError(err)
-
-	t.datastorer = dataStorer
-
-	// test add method
-	err = t.datastorer.Add(key, []byte(value))
-	t.NoError(err)
-
-	//test delete method
-	err = t.datastorer.Delete(key)
-	t.NoError(err)
-
-	//test delete again
-	err = t.datastorer.Delete(key)
-	t.Error(err)
-
-	CleanAll("dir", t.dir)
 }
 
 func TestDataStorerSuite(t *testing.T) {

@@ -3,7 +3,6 @@ package telemetrylib
 import (
 	"encoding/json"
 	"log"
-	"strings"
 
 	"github.com/SUSE/telemetry/internal/pkg/datastore"
 	"github.com/SUSE/telemetry/pkg/config"
@@ -54,39 +53,37 @@ func (t *TelemetryCommonImpl) setup(cfg *config.DataStoresConfig) (err error) {
 	err = nil
 	// create the telemetry data items data store if not already setup
 	if t.items == nil {
-		itemDS := strings.Split(cfg.ItemDS, "|")
-		log.Printf("creating new datastore of type %q, params %q", itemDS[0], itemDS[1])
+		log.Printf("creating new datastore with params %q", cfg.ItemDS)
 
-		t.items, err = datastore.NewDataStore(itemDS[0], itemDS[1])
+		t.items, err = datastore.NewDatabaseStore(cfg.ItemDS)
 
 		if err != nil {
-			log.Printf("failed to create an items data store of type %q, params %q", itemDS[0], itemDS[1])
+			log.Printf("failed to create an items data store with params %q", cfg.ItemDS)
 			return
 		}
 	}
 
 	// create the telemetry bundle data store if not already setup
 	if t.bundles == nil {
-		bundleDS := strings.Split(cfg.BundleDS, "|")
-		log.Printf("creating new datastore of type %q, params %q", bundleDS[0], bundleDS[1])
+		log.Printf("creating new datastore of params %q", cfg.BundleDS)
 
-		t.bundles, err = datastore.NewDataStore(bundleDS[0], bundleDS[1])
+		t.bundles, err = datastore.NewDatabaseStore(cfg.BundleDS)
 
 		if err != nil {
-			log.Printf("failed to create a bundle data store of type %q params %q", bundleDS[0], bundleDS[1])
+			log.Printf("failed to create a bundle data store with params %q", cfg.BundleDS)
 			return
 		}
 	}
 
 	// create the telemetry report data store if not already setup
 	if t.reports == nil {
-		reportDS := strings.Split(cfg.ReportDS, "|")
-		log.Printf("creating new datastore of type %q, params %q", reportDS[0], reportDS[1])
 
-		t.reports, err = datastore.NewDataStore(reportDS[0], reportDS[1])
+		log.Printf("creating new datastore with params %q", cfg.ReportDS)
+
+		t.reports, err = datastore.NewDatabaseStore(cfg.ReportDS)
 
 		if err != nil {
-			log.Printf("failed to create a report data store of type %q params %q", reportDS[0], reportDS[1])
+			log.Printf("failed to create a report data store with params %q", cfg.ReportDS)
 			return
 		}
 	}

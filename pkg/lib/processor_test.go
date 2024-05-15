@@ -21,23 +21,26 @@ type telemetryProcessorTestEnv struct {
 	telemetryprocessor TelemetryProcessor
 }
 
-func NewProcessorTestEnv(cfgFile string) *telemetryProcessorTestEnv {
+func NewProcessorTestEnv(cfgFile string) (*telemetryProcessorTestEnv, error) {
 	t := telemetryProcessorTestEnv{cfgPath: cfgFile}
-	t.setup()
-	return &t
+	err := t.setup()
+	return &t, err
 }
 
-func (t *telemetryProcessorTestEnv) setup() {
+func (t *telemetryProcessorTestEnv) setup() (err error) {
 	t.cfg = config.NewConfig(t.cfgPath)
-	err := t.cfg.Load()
+	err = t.cfg.Load()
 	if err != nil {
-		log.Fatal(err.Error())
+		log.Print(err.Error())
+		return
 	}
 	processor, err := NewTelemetryProcessor(&t.cfg.DataStores)
 	if err != nil {
-		log.Fatalf("failed to setup telemetry processor for config %q: %s", t.cfgPath, err.Error())
+		log.Printf("failed to setup telemetry processor for config %q: %s", t.cfgPath, err.Error())
+		return
 	}
 	t.telemetryprocessor = processor
+	return
 }
 
 func (t *telemetryProcessorTestEnv) cleanup() {
@@ -46,13 +49,13 @@ func (t *telemetryProcessorTestEnv) cleanup() {
 	}
 
 	if t.cfg != nil {
-		itemDS := strings.Split(t.cfg.DataStores.ItemDS, "|")
-		bundleDS := strings.Split(t.cfg.DataStores.BundleDS, "|")
-		reportDS := strings.Split(t.cfg.DataStores.ReportDS, "|")
+		itemDS := t.cfg.DataStores.ItemDS
+		bundleDS := t.cfg.DataStores.BundleDS
+		reportDS := t.cfg.DataStores.ReportDS
 
-		datastore.CleanAll(itemDS[0], itemDS[1])
-		datastore.CleanAll(bundleDS[0], bundleDS[1])
-		datastore.CleanAll(reportDS[0], reportDS[1])
+		datastore.CleanAll(itemDS)
+		datastore.CleanAll(bundleDS)
+		datastore.CleanAll(reportDS)
 
 	}
 }
@@ -67,7 +70,7 @@ func (t *TelemetryProcessorTestSuite) TearDownSuite() {
 }
 
 func (t *TelemetryProcessorTestSuite) SetupTest() {
-	t.defaultEnv = NewProcessorTestEnv("./testdata/config/processor/defaultEnvProcessor.yaml")
+	t.defaultEnv, _ = NewProcessorTestEnv("./testdata/config/processor/defaultEnvProcessor.yaml")
 	t.defaultEnv.cleanup()
 }
 
@@ -154,33 +157,7 @@ func (t *TelemetryProcessorTestSuite) TestReport() {
 	tests := []struct {
 		cfgPath string
 	}{
-		{"./testdata/config/processor/itemdb_bundledb_reportfile_Env.yaml"},
-		{"./testdata/config/processor/itemdb_bundlefile_reportfile_Env.yaml"},
-		{"./testdata/config/processor/itemdb_bundlemem_reportfile_Env.yaml"},
-		{"./testdata/config/processor/itemfile_bundledb_reportfile_Env.yaml"},
-		{"./testdata/config/processor/itemfile_bundlefile_reportfile_Env.yaml"},
-		{"./testdata/config/processor/itemfile_bundlemem_reportfile_Env.yaml"},
-		{"./testdata/config/processor/itemmem_bundledb_reportfile_Env.yaml"},
-		{"./testdata/config/processor/itemmem_bundlefile_reportfile_Env.yaml"},
-		{"./testdata/config/processor/itemmem_bundlemem_reportfile_Env.yaml"},
-		{"./testdata/config/processor/itemdb_bundledb_reportdb_Env.yaml"},
-		{"./testdata/config/processor/itemdb_bundlefile_reportdb_Env.yaml"},
-		{"./testdata/config/processor/itemdb_bundlemem_reportdb_Env.yaml"},
-		{"./testdata/config/processor/itemfile_bundledb_reportdb_Env.yaml"},
-		{"./testdata/config/processor/itemfile_bundlefile_reportdb_Env.yaml"},
-		{"./testdata/config/processor/itemfile_bundlemem_reportdb_Env.yaml"},
-		{"./testdata/config/processor/itemmem_bundledb_reportdb_Env.yaml"},
-		{"./testdata/config/processor/itemmem_bundlefile_reportdb_Env.yaml"},
-		{"./testdata/config/processor/itemmem_bundlemem_reportdb_Env.yaml"},
-		{"./testdata/config/processor/itemdb_bundledb_reportmem_Env.yaml"},
-		{"./testdata/config/processor/itemdb_bundlefile_reportmem_Env.yaml"},
-		{"./testdata/config/processor/itemdb_bundlemem_reportmem_Env.yaml"},
-		{"./testdata/config/processor/itemfile_bundledb_reportmem_Env.yaml"},
-		{"./testdata/config/processor/itemfile_bundlefile_reportmem_Env.yaml"},
-		{"./testdata/config/processor/itemfile_bundlemem_reportmem_Env.yaml"},
-		{"./testdata/config/processor/itemmem_bundledb_reportmem_Env.yaml"},
-		{"./testdata/config/processor/itemmem_bundlefile_reportmem_Env.yaml"},
-		{"./testdata/config/processor/itemmem_bundlemem_reportmem_Env.yaml"},
+		{"./testdata/config/processor/defaultEnvProcessor.yaml"},
 	}
 
 	for _, tt := range tests {

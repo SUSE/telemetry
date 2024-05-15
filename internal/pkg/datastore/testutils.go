@@ -8,15 +8,8 @@ import (
 	"github.com/xyproto/randomstring"
 )
 
-func CleanAll(dstype string, dsparams string) {
-	switch dstype {
-	case "dir":
-		removeFiles(dsparams)
-	case "memory":
-		// nothing to do for memory type
-	case "db":
-		deleteAllRows(dsparams)
-	}
+func CleanAll(dsparams string) {
+	deleteAllRows(dsparams)
 }
 
 func removeFiles(directory string) {

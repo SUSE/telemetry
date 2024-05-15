@@ -3,6 +3,6 @@ enabled: true
 customer_id: 1234567890
 tags: []
 datastores:
-  items: dir|/tmp/telemetry_processor_items
-  bundles: dir|/tmp/telemetry_processor_bundles
-  reports: dir|/tmp/telemetry_processor_reports
+  items: sqlite3:/tmp/telemetry_processor/itemstore.db
+  bundles: sqlite3:/tmp/telemetry_processor/bundlestore.db
+  reports: sqlite3:/tmp/telemetry_processor/reportstore.db
