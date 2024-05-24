@@ -1,54 +1,55 @@
 package telemetrylib
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/SUSE/telemetry/pkg/config"
 	"github.com/SUSE/telemetry/pkg/types"
+	"github.com/SUSE/telemetry/pkg/utils"
 )
 
 type TelemetryProcessor interface {
 	TelemetryCommon
+
 	// Add telemetry data - a method to process jsonData as a byte[]
 	AddData(
 		telemetry types.TelemetryType,
 		content []byte,
 		tags types.Tags,
-	) (*TelemetryDataItem, error)
+	) (err error)
 
 	// Generate telemetry bundle
 	GenerateBundle(
 		clientId int64,
 		customerId string,
 		tags types.Tags,
-	) (*TelemetryBundle, error)
+	) (bundleRow *TelemetryBundleRow, err error)
 
 	// Generate telemetry report
 	GenerateReport(
-		clientId,
-		authToken string,
+		clientId int64,
 		tags types.Tags,
-	) (*TelemetryReport, error)
+	) (reportRow *TelemetryReportRow, err error)
 
-	// Get telemetry data items
-	GetDataItems() ([]TelemetryDataItem, error)
+	// Convert TelemetryReportRow structure to TelemetryReport
+	ToReport(reportRow *TelemetryReportRow) (report TelemetryReport, err error)
 
-	// Get telemetry bundles
-	GetBundles() ([]TelemetryBundle, error)
+	// Convert TelemetryBundleRow structure to TelemetryBundle
+	ToBundle(bundleRow *TelemetryBundleRow) (bundle TelemetryBundle, err error)
 
-	// Get telemetry reports
-	GetReports() ([]TelemetryReport, error)
+	// Convert TelemetryDataItemRow structure to TelemetryDataItem
+	ToItem(itemRow *TelemetryDataItemRow) (item TelemetryDataItem, err error)
 }
 
 // implements TelemetryProcessor interface.
 type TelemetryProcessorImpl struct {
 	t   TelemetryCommonImpl
-	cfg *config.DataStoresConfig
+	cfg *config.DBConfig
 }
 
-func (p *TelemetryProcessorImpl) setup(*config.DataStoresConfig) (err error) {
+func (p *TelemetryProcessorImpl) setup(cfg *config.DBConfig) (err error) {
 	err = p.t.setup(p.cfg)
 	return
 }
@@ -69,31 +70,31 @@ func (p *TelemetryProcessorImpl) ReportCount() (count int, err error) {
 	return p.t.ReportCount()
 }
 
-func (p *TelemetryProcessorImpl) GetDataItems() (dataitems []TelemetryDataItem, err error) {
+func (p *TelemetryProcessorImpl) GetDataItemRows() (dataitemsRows []*TelemetryDataItemRow, err error) {
 	return p.t.GetDataItems()
 }
 
-func (p *TelemetryProcessorImpl) DeleteDataItem(dataItem *TelemetryDataItem) (err error) {
-	return p.t.DeleteDataItem(dataItem)
+func (p *TelemetryProcessorImpl) DeleteDataItem(dataItemRow *TelemetryDataItemRow) (err error) {
+	return p.t.DeleteDataItem(dataItemRow)
 }
 
-func (p *TelemetryProcessorImpl) GetBundles() (bundles []TelemetryBundle, err error) {
+func (p *TelemetryProcessorImpl) GetBundleRows() (bundleRows []*TelemetryBundleRow, err error) {
 	return p.t.GetBundles()
 }
 
-func (p *TelemetryProcessorImpl) DeleteBundle(bundle *TelemetryBundle) (err error) {
-	return p.t.DeleteBundle(bundle)
+func (p *TelemetryProcessorImpl) DeleteBundle(bundleRow *TelemetryBundleRow) (err error) {
+	return p.t.DeleteBundle(bundleRow)
 }
 
-func (p *TelemetryProcessorImpl) GetReports() (reports []TelemetryReport, err error) {
+func (p *TelemetryProcessorImpl) GetReportRows() (reportRows []*TelemetryReportRow, err error) {
 	return p.t.GetReports()
 }
 
-func (p *TelemetryProcessorImpl) DeleteReport(report *TelemetryReport) (err error) {
-	return p.t.DeleteReport(report)
+func (p *TelemetryProcessorImpl) DeleteReport(reportRow *TelemetryReportRow) (err error) {
+	return p.t.DeleteReport(reportRow)
 }
 
-func NewTelemetryProcessor(cfg *config.DataStoresConfig) (TelemetryProcessor, error) {
+func NewTelemetryProcessor(cfg *config.DBConfig) (TelemetryProcessor, error) {
 	log.Printf("NewTelemetryProcessor(%+v)", cfg)
 	p := TelemetryProcessorImpl{cfg: cfg}
 
@@ -102,167 +103,168 @@ func NewTelemetryProcessor(cfg *config.DataStoresConfig) (TelemetryProcessor, er
 	return &p, err
 }
 
-func (p *TelemetryProcessorImpl) AddData(telemetry types.TelemetryType, marshaledData []byte, tags types.Tags) (item *TelemetryDataItem, err error) {
-
-	var data map[string]interface{}
-
-	err = json.Unmarshal([]byte(marshaledData), &data)
+func (p *TelemetryProcessorImpl) AddData(telemetry types.TelemetryType, marshaledData []byte, tags types.Tags) (err error) {
+	dataItemRow, err := NewTelemetryDataItemRow(telemetry, tags, marshaledData)
 	if err != nil {
-		return nil, fmt.Errorf("unable to unmarshal JSON: %s", err.Error())
+		return fmt.Errorf("unable to create telemetry data: %s", err.Error())
 	}
 
-	i := NewTelemetryDataItem(telemetry, tags, data)
-
-	jsonData, err := json.Marshal(i)
-	if err != nil {
-		log.Println("error marshalling JSON:", err)
-		return
-	}
-
-	iKey := i.Key()
-	err = p.t.items.Add(iKey, jsonData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to add the telemetry data item with telemetry id %q: %s", i.Header.TelemetryId, err.Error())
-	}
-
-	// set the returned item value
-	item = i
-
+	err = dataItemRow.Insert(p.t.storer.Conn)
 	return
 }
 
-func (p *TelemetryProcessorImpl) GenerateBundle(clientId int64, customerId string, tags types.Tags) (bundle *TelemetryBundle, err error) {
+func (p *TelemetryProcessorImpl) GenerateBundle(clientId int64, customerId string, tags types.Tags) (bundleRow *TelemetryBundleRow, err error) {
 
-	b := NewTelemetryBundle(clientId, customerId, tags)
-
-	itemKeys, err := p.t.items.List()
+	bundleRow, err = NewTelemetryBundleRow(clientId, customerId, tags)
 	if err != nil {
-		log.Printf("failed to retrieve list of keys from item store: %s", err.Error())
-		return
+		return bundleRow, fmt.Errorf("unable to create bundle: %s", err.Error())
 	}
 
-	if len(itemKeys) < 1 {
-		log.Print("no data items to bundle up, skipping")
-		return
-	}
-
-	items := make([]TelemetryDataItem, len(itemKeys))
-	for i, key := range itemKeys {
-		data, err := p.t.items.Get(key)
-		if err != nil {
-			log.Printf("failed to retrieve key %q from item store: %s", key, err.Error())
-			return nil, err
-		}
-
-		var item TelemetryDataItem
-		err = json.Unmarshal(data, &item)
-		if err != nil {
-			log.Printf("failed to unmarshal data item %q: %s", key, err.Error())
-			return nil, err
-		}
-
-		items[i] = item
-	}
-
-	b.TelemetryDataItems = items
-	b.Footer.Checksum = "calculatechecksum" //TO DO
-
-	// Create the bundle
-	jsonData, err := json.Marshal(b)
+	//List all items that are not associated with bundle yet
+	itemIDs, _, err := p.t.storer.GetItemsWithNoBundleAssociation()
 	if err != nil {
-		log.Println("error marshalling JSON:", err)
-		return
+		return bundleRow, fmt.Errorf("unable to get items for bundle generation: %s", err.Error())
 	}
-	bKey := b.Key()
-	log.Printf("generating a bundle with ID %s\n", bKey)
-	err = p.t.bundles.Add(b.Key(), []byte(jsonData))
+
+	_, err = bundleRow.Insert(p.t.storer.Conn, itemIDs)
+
 	if err != nil {
-		return nil, fmt.Errorf("failed to add the bundle with bundle id %q: %s", b.Header.BundleId, err.Error())
+		return bundleRow, fmt.Errorf("unable to insert bundle: %s", err.Error())
 	}
-
-	log.Printf("generated a bundle with ID %s successfully\n", b.Header.BundleId)
-
-	// Delete the processed dataitems
-	p.deleteAlreadyProcessedDataItems(itemKeys)
-
-	// set the returned bundle value
-	bundle = b
-
 	return
 }
 
-func (p *TelemetryProcessorImpl) deleteAlreadyProcessedDataItems(itemKeys []string) {
-	for _, key := range itemKeys {
-		err := p.t.items.Delete(key)
-		if err != nil {
-			log.Printf("failed to delete the data item %q: %s", key, err.Error())
-		}
+func (p *TelemetryProcessorImpl) GenerateReport(clientId int64, tags types.Tags) (reportRow *TelemetryReportRow, err error) {
+
+	reportRow, err = NewTelemetryReportRow(clientId, tags)
+	if err != nil {
+		return reportRow, fmt.Errorf("unable to create report: %s", err.Error())
 	}
+
+	//List all bundles that are not associated with report yet
+	bundleIDs, _, err := p.t.storer.GetBundlesWithNoReportAssociation()
+
+	if err != nil {
+		return reportRow, fmt.Errorf("unable to get bundles for the report generation: %s", err.Error())
+	}
+
+	_, err = reportRow.Insert(p.t.storer.Conn, bundleIDs)
+
+	if err != nil {
+		return reportRow, fmt.Errorf("unable to insert report: %s", err.Error())
+	}
+
+	return
+
 }
 
-func (p *TelemetryProcessorImpl) GenerateReport(clientId, authToken string, tags types.Tags) (report *TelemetryReport, err error) {
+func (p *TelemetryProcessorImpl) DataItemCountInBundle(bundleId string) (count int, err error) {
+	// Get a count of telemetry data items that is associated with a bundle
+	return p.t.DataItemCountInBundle(bundleId)
+}
 
-	rpt := NewTelemetryReport(clientId, authToken, tags)
+func (p *TelemetryProcessorImpl) BundleCountInReport(reportId string) (count int, err error) {
+	// Get a count of telemetry bundles that is associated with a report
+	return p.t.BundleCountInReport(reportId)
+}
 
-	bundleKeys, err := p.t.bundles.List()
-	if err != nil {
-		log.Println("failed to retrieve the bundles", err)
-		return
+func (p *TelemetryProcessorImpl) ToReport(reportRow *TelemetryReportRow) (report TelemetryReport, err error) {
+	// Convert TelemetryReportRow structure to TelemetryReport
+
+	annotations := strings.Split(reportRow.ReportAnnotations, ",")
+
+	reportHeader := TelemetryReportHeader{
+		ReportId:          reportRow.ReportId,
+		ReportTimeStamp:   reportRow.ReportTimestamp,
+		ReportClientId:    reportRow.ReportClientId,
+		ReportAnnotations: annotations,
 	}
 
-	if len(bundleKeys) < 1 {
-		log.Print("no bundles available to add to reports, skipping")
-		return
+	reportFooter := TelemetryReportFooter{
+		Checksum: reportRow.ReportChecksum,
 	}
 
-	bundles := make([]TelemetryBundle, len(bundleKeys))
+	bundleRows, err := p.t.storer.GetBundleRowsInAReport(reportRow.ReportId)
 
-	for i, key := range bundleKeys {
-		value, err := p.t.bundles.Get(key)
-		if err != nil {
-			log.Printf("unable to marshal the data item %q: %s", key, err.Error())
-			return nil, err
-		}
+	var bundles []TelemetryBundle
 
+	for i := 0; i < len(bundleRows); i++ {
+		bundleRow := bundleRows[i]
 		var bundle TelemetryBundle
-		err = json.Unmarshal(value, &bundle)
-		if err != nil {
-			log.Printf("unable to marshal the data item %q: %s", key, err.Error())
-			return nil, err
-		}
+		bundle, err = p.ToBundle(bundleRow)
+		bundles = append(bundles, bundle)
 
-		bundles[i] = bundle
 	}
 
-	rpt.TelemetryBundles = bundles
-
-	jsonData, err := json.Marshal(rpt)
-	if err != nil {
-		log.Println("error marshalling JSON:", err)
-		return
+	report = TelemetryReport{
+		Header:           reportHeader,
+		TelemetryBundles: bundles,
+		Footer:           reportFooter,
 	}
 
-	rKey := rpt.Key()
-	log.Printf("generating a report with ID %s\n", rKey)
-	err = p.t.reports.Add(rpt.Key(), []byte(jsonData))
-	if err != nil {
-		return nil, fmt.Errorf("failed to add the report with report id %q: %s", rpt.Header.ReportId, err.Error())
-	}
+	return
 
-	log.Printf("generated a report with ID %s successfully\n", rpt.Header.ReportId)
-
-	// Delete the processed bundles
-	p.deleteAlreadyProcessedBundles(bundleKeys)
-
-	return rpt, nil
 }
 
-func (p *TelemetryProcessorImpl) deleteAlreadyProcessedBundles(bundleKeys []string) {
-	for _, key := range bundleKeys {
-		err := p.t.bundles.Delete(key)
-		if err != nil {
-			log.Printf("failed to delete bundle %q: %s", key, err.Error())
-			continue
-		}
+func (p *TelemetryProcessorImpl) ToBundle(bundleRow *TelemetryBundleRow) (bundle TelemetryBundle, err error) {
+	// Convert TelemetryBundleRow structure to TelemetryBundle
+	annotations := strings.Split(bundleRow.BundleAnnotations, ",")
+
+	bundleHeader := TelemetryBundleHeader{
+		BundleId:          bundleRow.BundleId,
+		BundleTimeStamp:   bundleRow.BundleTimestamp,
+		BundleClientId:    bundleRow.BundleClientId,
+		BundleCustomerId:  bundleRow.BundleCustomerId,
+		BundleAnnotations: annotations,
 	}
+
+	bundleFooter := TelemetryBundleFooter{
+		Checksum: bundleRow.BundleChecksum,
+	}
+
+	itemRows, err := p.t.storer.GetDataItemRowsInABundle(bundleRow.BundleId)
+	var items []TelemetryDataItem
+
+	for j := 0; j < len(itemRows); j++ {
+		var item TelemetryDataItem
+		itemRow := itemRows[j]
+		item, err = p.ToItem(itemRow)
+		items = append(items, item)
+
+	}
+
+	bundle = TelemetryBundle{
+		Header:             bundleHeader,
+		TelemetryDataItems: items,
+		Footer:             bundleFooter,
+	}
+
+	return
+
+}
+
+func (p *TelemetryProcessorImpl) ToItem(itemRow *TelemetryDataItemRow) (item TelemetryDataItem, err error) {
+	// Convert TelemetryDataItemRow structure to TelemetryDataItem
+	annotations := strings.Split(itemRow.ItemAnnotations, ",")
+	itemHeader := TelemetryDataItemHeader{
+		TelemetryId:          itemRow.ItemId,
+		TelemetryTimeStamp:   itemRow.ItemTimestamp,
+		TelemetryType:        itemRow.ItemType,
+		TelemetryAnnotations: annotations,
+	}
+
+	itemFooter := TelemetryDataItemFooter{
+		Checksum: itemRow.ItemChecksum,
+	}
+
+	data, err := utils.DeserializeMap(itemRow.ItemData)
+
+	item = TelemetryDataItem{
+		Header:        itemHeader,
+		TelemetryData: data,
+		Footer:        itemFooter,
+	}
+
+	return
+
 }

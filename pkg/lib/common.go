@@ -1,237 +1,131 @@
 package telemetrylib
 
 import (
-	"encoding/json"
-	"log"
-
-	"github.com/SUSE/telemetry/internal/pkg/datastore"
 	"github.com/SUSE/telemetry/pkg/config"
 )
 
 type TelemetryCommon interface {
 	// Setup the datastore for dataitems, bundles and reports
-	setup(*config.DataStoresConfig) error
+	setup(*config.DBConfig) error
 
-	// cleanup extractor contents, for testing support
+	// cleanup contents, for testing support
 	cleanup()
 
-	// Get a count of telemetry data items
+	// Get a count of telemetry data items that are not associated with a bundle
 	DataItemCount() (int, error)
 
-	// Get a count of telemetry bundles
+	// Get a count of telemetry data items that are associated with a specific bundle
+	DataItemCountInBundle(bundleId string) (int, error)
+
+	// Get a count of telemetry bundles that are not associated with a report
 	BundleCount() (int, error)
+
+	// Get a count of telemetry bundles that are associated with a specific report
+	BundleCountInReport(reportId string) (int, error)
 
 	// Get a count of telemetry reports
 	ReportCount() (int, error)
 
-	// Get telemetry data items
-	GetDataItems() ([]TelemetryDataItem, error)
+	// Get telemetry data items from the items table
+	GetDataItemRows() ([]*TelemetryDataItemRow, error)
 
-	// Delete a specified telemetry data item from the data items datastore
-	DeleteDataItem(dataItem *TelemetryDataItem) error
+	// Delete a specified telemetry data item from the items table
+	DeleteDataItem(dataItemRow *TelemetryDataItemRow) error
 
-	// Get telemetry bundles
-	GetBundles() ([]TelemetryBundle, error)
+	// Get telemetry bundles from the bundles table
+	GetBundleRows() ([]*TelemetryBundleRow, error)
 
-	// Delete a specified telemetry report from the report datastore
-	DeleteBundle(report *TelemetryBundle) error
+	// Delete a specified telemetry bundle from the bundles table
+	DeleteBundle(bundleRow *TelemetryBundleRow) error
 
-	// Get telemetry reports
-	GetReports() ([]TelemetryReport, error)
+	// Get telemetry reports from the reports table
+	GetReportRows() ([]*TelemetryReportRow, error)
 
-	// Delete a specified telemetry report from the report datastore
-	DeleteReport(report *TelemetryReport) error
+	// Delete a specified telemetry report from the reports table
+	DeleteReport(reportRow *TelemetryReportRow) error
 }
 
 type TelemetryCommonImpl struct {
-	items   datastore.DataStorer
-	bundles datastore.DataStorer
-	reports datastore.DataStorer
+	storer *DatabaseStore
 }
 
-func (t *TelemetryCommonImpl) setup(cfg *config.DataStoresConfig) (err error) {
-	err = nil
-	// create the telemetry data items data store if not already setup
-	if t.items == nil {
-		log.Printf("creating new datastore with params %q", cfg.ItemDS)
-
-		t.items, err = datastore.NewDatabaseStore(cfg.ItemDS)
-
-		if err != nil {
-			log.Printf("failed to create an items data store with params %q", cfg.ItemDS)
-			return
-		}
-	}
-
-	// create the telemetry bundle data store if not already setup
-	if t.bundles == nil {
-		log.Printf("creating new datastore of params %q", cfg.BundleDS)
-
-		t.bundles, err = datastore.NewDatabaseStore(cfg.BundleDS)
-
-		if err != nil {
-			log.Printf("failed to create a bundle data store with params %q", cfg.BundleDS)
-			return
-		}
-	}
-
-	// create the telemetry report data store if not already setup
-	if t.reports == nil {
-
-		log.Printf("creating new datastore with params %q", cfg.ReportDS)
-
-		t.reports, err = datastore.NewDatabaseStore(cfg.ReportDS)
-
-		if err != nil {
-			log.Printf("failed to create a report data store with params %q", cfg.ReportDS)
-			return
-		}
-	}
-
+func (t *TelemetryCommonImpl) setup(cfg *config.DBConfig) (err error) {
+	t.storer, err = NewDatabaseStore(*cfg)
 	return
-
 }
 
 func (t *TelemetryCommonImpl) cleanup() (err error) {
-	err = nil
-	iKeys, _ := t.items.List()
-	for _, key := range iKeys {
-		err = t.items.Delete(key)
-	}
-
-	bKeys, _ := t.bundles.List()
-	for _, key := range bKeys {
-		err = t.bundles.Delete(key)
-	}
-
-	rKeys, _ := t.reports.List()
-	for _, key := range rKeys {
-		err = t.reports.Delete(key)
-	}
-
+	err = t.storer.dropTables()
 	return
 
 }
 
 func (t *TelemetryCommonImpl) DataItemCount() (count int, err error) {
-	keys, err := t.items.List()
-	if err != nil {
-		log.Printf("failed to retrieve list of keys for item store: %s", err.Error())
-		return
-	}
-
-	count = len(keys)
-
+	// count of items that not have been associated with bundle yet
+	//_, dataitemRows, err := t.storer.GetItemsWithNoBundleAssociation()
+	//count = len(dataitemRows)
+	count, err = t.storer.GetDataItemCount()
 	return
 }
 
 func (t *TelemetryCommonImpl) BundleCount() (count int, err error) {
-	keys, err := t.bundles.List()
-	if err != nil {
-		log.Printf("failed to retrieve list of keys for bundle store: %s", err.Error())
-		return
-	}
-
-	count = len(keys)
-
+	// count of bundles that not have been associated with report yet
+	count, err = t.storer.GetBundleCount()
 	return
 }
 
 func (t *TelemetryCommonImpl) ReportCount() (count int, err error) {
-	keys, err := t.reports.List()
-	if err != nil {
-		log.Printf("failed to retrieve list of keys for report store: %s", err.Error())
-		return
-	}
-
-	count = len(keys)
-
+	// count of reports
+	count, err = t.storer.GetReportCount()
 	return
 }
 
-func (t *TelemetryCommonImpl) GetDataItems() (dataitems []TelemetryDataItem, err error) {
-
-	keys, err := t.items.List()
-	if err != nil {
-		log.Printf("failed to retrieve list of keys for item store: %s", err.Error())
-		return
-	}
-
-	for _, j := range keys {
-		data, _ := t.items.Get(j)
-		var item TelemetryDataItem
-		err = json.Unmarshal(data, &item)
-		if err != nil {
-			log.Printf("failed to unmarshal data item %q: %s", j, err.Error())
-			return nil, err
-		}
-
-		dataitems = append(dataitems, item)
-
-	}
-
+func (t *TelemetryCommonImpl) GetDataItems() (dataitemRows []*TelemetryDataItemRow, err error) {
+	_, dataitemRows, err = t.storer.GetItemsWithNoBundleAssociation()
 	return
-
 }
 
-func (t *TelemetryCommonImpl) DeleteDataItem(dataItem *TelemetryDataItem) error {
-	return t.items.Delete(dataItem.Key())
-}
-
-func (t *TelemetryCommonImpl) DeleteBundle(bundle *TelemetryBundle) error {
-	return t.items.Delete(bundle.Key())
-}
-
-func (t *TelemetryCommonImpl) GetBundles() (bundles []TelemetryBundle, err error) {
-
-	keys, err := t.bundles.List()
-	if err != nil {
-		log.Printf("failed to retrieve list of keys for bundle store: %s", err.Error())
-		return
-	}
-
-	for _, j := range keys {
-		data, _ := t.bundles.Get(j)
-		var bundle TelemetryBundle
-		err = json.Unmarshal(data, &bundle)
-		if err != nil {
-			log.Printf("failed to unmarshal bundle %q: %s", j, err.Error())
-			return nil, err
-		}
-
-		bundles = append(bundles, bundle)
-
-	}
-
+func (t *TelemetryCommonImpl) DeleteDataItem(dataItemRow *TelemetryDataItemRow) (err error) {
+	err = dataItemRow.Delete(t.storer.Conn)
 	return
-
 }
 
-func (t *TelemetryCommonImpl) GetReports() (reports []TelemetryReport, err error) {
-
-	keys, err := t.reports.List()
-	if err != nil {
-		log.Printf("failed to retrieve list of keys for report store: %s", err.Error())
-		return
-	}
-
-	for _, j := range keys {
-		data, _ := t.reports.Get(j)
-		var report TelemetryReport
-		err = json.Unmarshal(data, &report)
-		if err != nil {
-			log.Printf("failed to unmarshal report %q: %s", j, err.Error())
-			return nil, err
-		}
-
-		reports = append(reports, report)
-
-	}
-
+func (t *TelemetryCommonImpl) DeleteBundle(bundleRow *TelemetryBundleRow) (err error) {
+	err = bundleRow.Delete(t.storer.Conn)
 	return
-
 }
 
-func (t *TelemetryCommonImpl) DeleteReport(report *TelemetryReport) error {
-	return t.reports.Delete(report.Key())
+func (t *TelemetryCommonImpl) GetBundles() (bundleRows []*TelemetryBundleRow, err error) {
+	_, bundleRows, err = t.storer.GetBundlesWithNoReportAssociation()
+	return
+}
+
+func (t *TelemetryCommonImpl) GetReports() (reportRows []*TelemetryReportRow, err error) {
+	_, reportRows, err = t.storer.GetReports()
+	return
+}
+
+func (t *TelemetryCommonImpl) DeleteReport(reportRow *TelemetryReportRow) (err error) {
+	//Delete the report
+	err = reportRow.Delete(t.storer.Conn)
+	return
+}
+
+func (t *TelemetryCommonImpl) DataItemCountInBundle(bundleId string) (count int, err error) {
+	// Get a count of telemetry data items that is associated with a bundle
+	itemRows, err := t.storer.GetDataItemRowsInABundle(bundleId)
+	count = len(itemRows)
+	return
+}
+
+func (t *TelemetryCommonImpl) BundleCountInReport(reportId string) (count int, err error) {
+	// Get a count of telemetry bundles that is associated with a report
+	bundleRows, err := t.storer.GetBundleRowsInAReport(reportId)
+	count = len(bundleRows)
+	return
+}
+
+func (t *TelemetryCommonImpl) GetBundleRowsInReport(reportId string) (bundleRows []*TelemetryBundleRow, err error) {
+	bundleRows, err = t.storer.GetBundleRowsInAReport(reportId)
+	return
 }

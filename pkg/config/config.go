@@ -9,49 +9,56 @@ import (
 )
 
 type Config struct {
-	cfgPath          string
-	TelemetryBaseURL string           `yaml:"telemetry_base_url"`
-	Enabled          bool             `yaml:"enabled"`
-	CustomerID       string           `yaml:"customer_id"`
-	Tags             []string         `yaml:"tags"`
-	DataStores       DataStoresConfig `yaml:"datastores"`
-	Extras           any              `yaml:"extras,omitempty"`
+	TelemetryBaseURL string   `yaml:"telemetry_base_url"`
+	Enabled          bool     `yaml:"enabled"`
+	CustomerID       string   `yaml:"customer_id"`
+	Tags             []string `yaml:"tags"`
+	DataStores       DBConfig `yaml:"datastores"`
+	Extras           any      `yaml:"extras,omitempty"`
+}
+
+// Defaults
+var DefaultDBCfg = DBConfig{
+	Driver: "sqlite3",
+	Params: "/tmp/telemetry/client/telemetry.db",
+}
+
+var DefaultCfg = Config{
+	//TelemetryBaseURL: "https://scc.suse.com/telemetry/",
+	TelemetryBaseURL: "http://localhost:9999/telemetry",
+	Enabled:          false,
+	CustomerID:       "0",
+	Tags:             []string{},
+	DataStores:       DefaultDBCfg,
 }
 
 // Datastore config for staging the data
-type DataStoresConfig struct {
-	ItemDS   string `yaml:"items"`
-	BundleDS string `yaml:"bundles"`
-	ReportDS string `yaml:"reports"`
+type DBConfig struct {
+	Driver string `yaml:"driver"`
+	Params string `yaml:"params"`
 }
 
-func NewConfig(cfgFile string) *Config {
-	cfg := &Config{cfgPath: cfgFile}
+func NewConfig(cfgFile string) (*Config, error) {
 
-	return cfg
-}
+	//Default configuration
+	cfg := &DefaultCfg
 
-func (cfg *Config) Path() string {
-	return cfg.cfgPath
-}
-
-func (cfg *Config) Load() error {
-	log.Printf("cfgPath: %q", cfg.cfgPath)
-	_, err := os.Stat(cfg.cfgPath)
+	_, err := os.Stat(cfgFile)
 	if os.IsNotExist(err) {
-		return fmt.Errorf("config file '%s' doesn't exist: %s", cfg.cfgPath, err)
+		log.Printf("config file '%s' doesn't exist. Using default configuration.", cfgFile)
+		return cfg, nil
 	}
 
-	contents, err := os.ReadFile(cfg.cfgPath)
+	contents, err := os.ReadFile(cfgFile)
 	if err != nil {
-		return fmt.Errorf("failed to read contents of config file '%s': %s", cfg.cfgPath, err)
+		return cfg, fmt.Errorf("failed to read contents of config file '%s': %s", cfgFile, err)
 	}
 
 	log.Printf("Contents: %q", contents)
-	err = yaml.Unmarshal(contents, cfg)
+	err = yaml.Unmarshal(contents, &cfg)
 	if err != nil {
-		return fmt.Errorf("failed to parse contents of config file '%s': %s", cfg.cfgPath, err)
+		return cfg, fmt.Errorf("failed to parse contents of config file '%s': %s", cfgFile, err)
 	}
 
-	return nil
+	return cfg, nil
 }

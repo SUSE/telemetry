@@ -197,7 +197,7 @@ func (tc *TelemetryClient) submitReport(report *telemetrylib.TelemetryReport) (e
 		return
 	}
 
-	log.Printf("Successfully submitted report %q: processing %q", report.Key(), trResp.ProcessingInfo())
+	log.Printf("Successfully submitted report %q: processing %q", report.Header.ReportId, trResp.ProcessingInfo())
 
 	return
 }
@@ -301,32 +301,39 @@ func (tc *TelemetryClient) CreateBundles(tags types.Tags) error {
 func (tc *TelemetryClient) CreateReports(tags types.Tags) (err error) {
 	// Generate reports from available bundles
 	log.Printf("CreateReports: Tags: %v", tags)
-	tc.processor.GenerateReport(fmt.Sprintf("%x", tc.auth.ClientId), string(tc.auth.Token), tags)
+	tc.processor.GenerateReport(tc.auth.ClientId, tags)
 
 	return
 }
 
 func (tc *TelemetryClient) Submit() (err error) {
 	// fail if the client is not registered
+
 	err = tc.loadTelemetryAuth()
 	if err != nil {
 		return
 	}
 
 	// retrieve available reports
-	reports, err := tc.processor.GetReports()
+	reportRows, err := tc.processor.GetReportRows()
 	if err != nil {
 		return
 	}
 
 	// submit each available report
-	for _, report := range reports {
+	for _, reportRow := range reportRows {
+
+		report, err := tc.processor.ToReport(reportRow)
+		if err != nil {
+			return fmt.Errorf("failed to convert report %q: %s", reportRow.ReportId, err.Error())
+		}
+
 		if err := tc.submitReport(&report); err != nil {
-			return fmt.Errorf("failed to submit report %q: %s", report.Key(), err.Error())
+			return fmt.Errorf("failed to submit report %q: %s", report.Header.ReportId, err.Error())
 		}
 
 		// delete the successfully submitted report
-		tc.processor.DeleteReport(&report)
+		tc.processor.DeleteReport(reportRow)
 	}
 
 	return nil

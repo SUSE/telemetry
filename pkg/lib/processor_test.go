@@ -1,7 +1,6 @@
 package telemetrylib
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
@@ -9,10 +8,9 @@ import (
 
 	"github.com/SUSE/telemetry/pkg/config"
 	"github.com/SUSE/telemetry/pkg/types"
+	"github.com/SUSE/telemetry/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
-
-	"github.com/SUSE/telemetry/internal/pkg/datastore"
 )
 
 type telemetryProcessorTestEnv struct {
@@ -28,8 +26,7 @@ func NewProcessorTestEnv(cfgFile string) (*telemetryProcessorTestEnv, error) {
 }
 
 func (t *telemetryProcessorTestEnv) setup() (err error) {
-	t.cfg = config.NewConfig(t.cfgPath)
-	err = t.cfg.Load()
+	t.cfg, err = config.NewConfig(t.cfgPath)
 	if err != nil {
 		log.Print(err.Error())
 		return
@@ -44,19 +41,9 @@ func (t *telemetryProcessorTestEnv) setup() (err error) {
 }
 
 func (t *telemetryProcessorTestEnv) cleanup() {
+
 	if t.telemetryprocessor != nil {
 		t.telemetryprocessor.cleanup()
-	}
-
-	if t.cfg != nil {
-		itemDS := t.cfg.DataStores.ItemDS
-		bundleDS := t.cfg.DataStores.BundleDS
-		reportDS := t.cfg.DataStores.ReportDS
-
-		datastore.CleanAll(itemDS)
-		datastore.CleanAll(bundleDS)
-		datastore.CleanAll(reportDS)
-
 	}
 }
 
@@ -71,7 +58,6 @@ func (t *TelemetryProcessorTestSuite) TearDownSuite() {
 
 func (t *TelemetryProcessorTestSuite) SetupTest() {
 	t.defaultEnv, _ = NewProcessorTestEnv("./testdata/config/processor/defaultEnvProcessor.yaml")
-	t.defaultEnv.cleanup()
 }
 
 func (t *TelemetryProcessorTestSuite) AfterTest() {
@@ -85,24 +71,26 @@ func (t *TelemetryProcessorTestSuite) TestAddTelemetryDataItem() {
        {
                "ItemA": 1,
                "ItemB": "b",
-							 "ItemC": "c"
+               "ItemC": "c"
        }
        `
 
 	// test the fileEnv.yaml based datastores
 	processor := t.defaultEnv.telemetryprocessor
 
-	_, err := processor.AddData(telemetryType, []byte(payload), tags)
+	err := processor.AddData(telemetryType, []byte(payload), tags)
 	if err != nil {
 		t.Fail("Test failed to add telemetry data item to datastore")
 	}
+
+	processor.cleanup()
 
 }
 
 func (t *TelemetryProcessorTestSuite) TestCreateBundle() {
 	// This tests adds two telemetry data items and
 	// validates creation of the bundle
-	telmetryprocessor := t.defaultEnv.telemetryprocessor
+	telemetryprocessor := t.defaultEnv.telemetryprocessor
 
 	telemetryType := types.TelemetryType("SLE-SERVER-Test")
 
@@ -115,7 +103,7 @@ func (t *TelemetryProcessorTestSuite) TestCreateBundle() {
 			"field3": [1, 2, 3]
 	}
 	`
-	_, err := telmetryprocessor.AddData(telemetryType, []byte(payload), tags)
+	err := telemetryprocessor.AddData(telemetryType, []byte(payload), tags)
 
 	if err != nil {
 		t.Fail("Test failed to add telemetry data item")
@@ -132,19 +120,25 @@ func (t *TelemetryProcessorTestSuite) TestCreateBundle() {
 	}
 	`
 
-	_, err = telmetryprocessor.AddData(telemetryType, []byte(payload), newtags)
+	err = telemetryprocessor.AddData(telemetryType, []byte(payload), newtags)
 
 	if err != nil {
 		t.Fail("Test failed to add telemetry data item")
 	}
 
 	btags := types.Tags{types.Tag("key1=value1"), types.Tag("key2")}
-	b, berr := telmetryprocessor.GenerateBundle(1, "customer id", btags)
+	bundleRow, berr := telemetryprocessor.GenerateBundle(1, "customer id", btags)
+
 	if berr != nil {
 		log.Printf("Failed to create the bundle")
 		t.Fail("Test failed to create the bundle")
 	}
-	assert.Equal(t.T(), 2, len(b.TelemetryDataItems))
+
+	// Validate the item count in the bundle generated
+	count, _ := telemetryprocessor.DataItemCountInBundle(bundleRow.BundleId)
+	assert.Equal(t.T(), 2, count)
+
+	telemetryprocessor.cleanup()
 
 }
 
@@ -162,7 +156,8 @@ func (t *TelemetryProcessorTestSuite) TestReport() {
 
 	for _, tt := range tests {
 		t.Run("validating creation of report with env from "+tt.cfgPath, func() {
-			env := telemetryProcessorTestEnv{cfgPath: tt.cfgPath}
+
+			env, _ := NewProcessorTestEnv(tt.cfgPath)
 			env.cleanup()
 			env.setup()
 			telemetryprocessor := env.telemetryprocessor
@@ -179,12 +174,16 @@ func (t *TelemetryProcessorTestSuite) TestReport() {
 			assert.Equal(t.T(), 5, itemsCount)
 
 			btags := types.Tags{types.Tag("key1=value1"), types.Tag("key2")}
-			bundle, berr := telemetryprocessor.GenerateBundle(1, "customer id", btags)
+
+			bundleRow, berr := telemetryprocessor.GenerateBundle(1, "customer id", btags)
 			if berr != nil {
 				log.Printf("Failed to create the bundle")
 				t.Fail("Test failed to create the bundle")
 			}
-			assert.Equal(t.T(), 5, len(bundle.TelemetryDataItems))
+
+			// Validate the item count in the bundle generated
+			count, _ := telemetryprocessor.DataItemCountInBundle(bundleRow.BundleId)
+			assert.Equal(t.T(), 5, count)
 
 			err = addDataItems(5, telemetryprocessor)
 			assert.NoError(t.T(), err, "Adding second set of dataitems failed")
@@ -192,20 +191,33 @@ func (t *TelemetryProcessorTestSuite) TestReport() {
 			assert.Equal(t.T(), 5, itemsCount)
 
 			btags1 := types.Tags{types.Tag("key3=value3"), types.Tag("key4")}
-			bundle1, berr := telemetryprocessor.GenerateBundle(1, "customer id", btags1)
+			bundleRow, berr = telemetryprocessor.GenerateBundle(1, "customer id", btags1)
 			if berr != nil {
 				log.Printf("Failed to create the bundle")
 				t.Fail("Test failed to create the bundle")
 			}
-			assert.Equal(t.T(), 5, len(bundle1.TelemetryDataItems))
+			// Validate the item count in the bundle generated
+			count, _ = telemetryprocessor.DataItemCountInBundle(bundleRow.BundleId)
+			assert.Equal(t.T(), 5, count)
 
 			rtags := types.Tags{types.Tag("key5=value5"), types.Tag("key6")}
-			report, err := telemetryprocessor.GenerateReport("client id", "auth token", rtags)
+			reportRow, err := telemetryprocessor.GenerateReport(123456, rtags)
 			assert.NoError(t.T(), err, "Report failed")
 
-			assert.Equal(t.T(), 2, len(report.TelemetryBundles))
+			// Validate the bundle count in the report generated
+			count, _ = telemetryprocessor.BundleCountInReport(reportRow.ReportId)
+			assert.Equal(t.T(), 2, count)
+
 			bundlesCount, _ = telemetryprocessor.BundleCount()
 			assert.Equal(t.T(), 0, bundlesCount)
+
+			reportRows, err := telemetryprocessor.GetReportRows()
+			assert.NoError(t.T(), err)
+			assert.Equal(t.T(), 1, len(reportRows))
+
+			report, err := telemetryprocessor.ToReport(reportRow)
+			assert.NoError(t.T(), err)
+			assert.Equal(t.T(), report.Header.ReportId, reportRow.ReportId)
 
 			env.cleanup()
 		})
@@ -226,7 +238,7 @@ func (t *TelemetryProcessorTestSuite) TestAddTelemetryDataItemInvalidPayload() {
 	var tags types.Tags
 
 	processor := t.defaultEnv.telemetryprocessor
-	_, err := processor.AddData(telemetryType, []byte(payload), tags)
+	err := processor.AddData(telemetryType, []byte(payload), tags)
 
 	expectedmsg := "unable to unmarshal JSON"
 
@@ -252,27 +264,10 @@ func addDataItems(totalItems int, processor TelemetryProcessor) error {
 			"ItemB": "%s"
 		}
 		`
-	var err error
 	numItems := 1
 	for numItems <= totalItems {
-		formattedJSON := fmt.Sprintf(payload, datastore.GenerateRandomString(3))
-
-		// Decode JSON string into a map
-		var data map[string]interface{}
-		err = json.Unmarshal([]byte(formattedJSON), &data)
-		if err != nil {
-			log.Println("Error:", err)
-			return err
-		}
-
-		// Encode Data struct back to JSON format
-		formattedData, err := json.MarshalIndent(data, "", "    ")
-		if err != nil {
-			log.Println("Error:", err)
-			return err
-		}
-
-		_, err = processor.AddData(telemetryType, []byte(string(formattedData)), tags)
+		formattedJSON := fmt.Sprintf(payload, utils.GenerateRandomString(3))
+		err := processor.AddData(telemetryType, []byte(formattedJSON), tags)
 		if err != nil {
 			log.Printf("Failed to add the item %d", numItems)
 			return err

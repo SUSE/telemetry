@@ -26,8 +26,7 @@ var opts options
 func main() {
 	fmt.Printf("clientds: %s\n", opts)
 
-	cfg := config.NewConfig(opts.config)
-	err := cfg.Load()
+	cfg, err := config.NewConfig(opts.config)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -41,46 +40,46 @@ func main() {
 	processor := tc.Processor()
 
 	if opts.items {
-		items, err := processor.GetDataItems()
+		itemRows, err := processor.GetDataItemRows()
 		if err != nil {
 			log.Fatal(err.Error())
 		}
 
-		itemCount := len(items)
+		itemCount := len(itemRows)
 		if itemCount > 0 {
-			fmt.Printf("%d Telemetry data items found.\n", len(items))
-			for i, dataItem := range items {
-				fmt.Printf("Data Item[%d]: %q\n", i, dataItem.Key())
+			fmt.Printf("%d Telemetry data items found.\n", len(itemRows))
+			for i, dataItemRow := range itemRows {
+				fmt.Printf("Data Item[%d]: %q\n", i, dataItemRow.ItemId)
 			}
 		}
 	}
 
 	if opts.bundles {
-		bundles, err := processor.GetBundles()
+		bundleRows, err := processor.GetBundleRows()
 		if err != nil {
 			log.Fatal(err.Error())
 		}
 
-		bundleCount := len(bundles)
+		bundleCount := len(bundleRows)
 		if bundleCount > 0 {
-			fmt.Printf("%d Telemetry bundles found.\n", len(bundles))
-			for i, bundle := range bundles {
-				fmt.Printf("Bundle[%d]: %q\n", i, bundle.Key())
+			fmt.Printf("%d Telemetry bundles found.\n", len(bundleRows))
+			for i, bundleRow := range bundleRows {
+				fmt.Printf("Bundle[%d]: %q\n", i, bundleRow.BundleId)
 			}
 		}
 	}
 
 	if opts.reports {
-		reports, err := processor.GetReports()
+		reportRows, err := processor.GetReportRows()
 		if err != nil {
 			log.Fatal(err.Error())
 		}
 
-		reportCount := len(reports)
+		reportCount := len(reportRows)
 		if reportCount > 0 {
-			fmt.Printf("%d Telemetry reports found.\n", len(reports))
-			for i, report := range reports {
-				fmt.Printf("Reports[%d]: %q\n", i, report.Key())
+			fmt.Printf("%d Telemetry reports found.\n", len(reportRows))
+			for i, reportRow := range reportRows {
+				fmt.Printf("Reports[%d]: %q\n", i, reportRow.ReportId)
 			}
 		}
 	}

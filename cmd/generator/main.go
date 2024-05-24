@@ -32,8 +32,7 @@ var opts options
 func main() {
 	fmt.Printf("Generator: %s\n", opts)
 
-	cfg := config.NewConfig(opts.config)
-	err := cfg.Load()
+	cfg, err := config.NewConfig(opts.config)
 	if err != nil {
 		log.Fatal(err)
 	}
