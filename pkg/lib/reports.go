@@ -10,9 +10,9 @@ import (
 )
 
 type TelemetryReport struct {
-	Header           TelemetryReportHeader `json:"header"`
-	TelemetryBundles []TelemetryBundle     `json:"telemetryBundles"`
-	Footer           TelemetryReportFooter `json:"footer"`
+	Header           TelemetryReportHeader `json:"header" validate:"required"`
+	TelemetryBundles []TelemetryBundle     `json:"telemetryBundles" validate:"required,gt=0,dive"`
+	Footer           TelemetryReportFooter `json:"footer" validate:"required"`
 }
 
 func NewTelemetryReport(clientId int64, tags types.Tags) *TelemetryReport {
@@ -33,14 +33,14 @@ func NewTelemetryReport(clientId int64, tags types.Tags) *TelemetryReport {
 }
 
 type TelemetryReportHeader struct {
-	ReportId          string   `json:"reportId"`
-	ReportTimeStamp   string   `json:"reportTimeStamp"`
-	ReportClientId    int64    `json:"reportClientId"`
+	ReportId          string   `json:"reportId" validate:"required"`
+	ReportTimeStamp   string   `json:"reportTimeStamp" validate:"required"`
+	ReportClientId    int64    `json:"reportClientId" validate:"required"`
 	ReportAnnotations []string `json:"reportAnnotations"`
 }
 
 type TelemetryReportFooter struct {
-	Checksum string `json:"checksum"`
+	Checksum string `json:"checksum" validate:"required"`
 }
 
 // Database

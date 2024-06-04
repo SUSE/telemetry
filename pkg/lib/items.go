@@ -12,9 +12,9 @@ import (
 )
 
 type TelemetryDataItem struct {
-	Header        TelemetryDataItemHeader `json:"header"`
-	TelemetryData map[string]interface{}  `json:"telemetryData"`
-	Footer        TelemetryDataItemFooter `json:"footer"`
+	Header        TelemetryDataItemHeader `json:"header"  validate:"required"`
+	TelemetryData map[string]interface{}  `json:"telemetryData"  validate:"required,dive"`
+	Footer        TelemetryDataItemFooter `json:"footer" validate:"required"`
 }
 
 // func NewTelemetryDataItem(telemetry types.TelemetryType, tags types.Tags, data map[string]interface{}) *TelemetryDataItem {
@@ -44,14 +44,14 @@ func NewTelemetryDataItem(telemetry types.TelemetryType, tags types.Tags, marsha
 }
 
 type TelemetryDataItemHeader struct {
-	TelemetryId          string   `json:"telemetryId"`
-	TelemetryTimeStamp   string   `json:"telemetryTimeStamp"`
-	TelemetryType        string   `json:"telemetryType"`
+	TelemetryId          string   `json:"telemetryId"  validate:"required"`
+	TelemetryTimeStamp   string   `json:"telemetryTimeStamp"  validate:"required"`
+	TelemetryType        string   `json:"telemetryType"  validate:"required"`
 	TelemetryAnnotations []string `json:"telemetryAnnotations"`
 }
 
 type TelemetryDataItemFooter struct {
-	Checksum string `json:"checksum"`
+	Checksum string `json:"checksum"  validate:"required"`
 }
 
 //Database Mapping

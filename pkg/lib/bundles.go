@@ -10,9 +10,9 @@ import (
 )
 
 type TelemetryBundle struct {
-	Header             TelemetryBundleHeader `json:"header"`
-	TelemetryDataItems []TelemetryDataItem   `json:"telemetryDataItems"`
-	Footer             TelemetryBundleFooter `json:"footer"`
+	Header             TelemetryBundleHeader `json:"header" validate:"required"`
+	TelemetryDataItems []TelemetryDataItem   `json:"telemetryDataItems" validate:"required,gt=0,dive"`
+	Footer             TelemetryBundleFooter `json:"footer" validate:"required"`
 }
 
 func NewTelemetryBundle(clientId int64, customerId string, tags types.Tags) *TelemetryBundle {
@@ -34,15 +34,15 @@ func NewTelemetryBundle(clientId int64, customerId string, tags types.Tags) *Tel
 }
 
 type TelemetryBundleHeader struct {
-	BundleId          string   `json:"bundleId"`
-	BundleTimeStamp   string   `json:"bundleTimeStamp"`
-	BundleClientId    int64    `json:"bundleClientId"`
-	BundleCustomerId  string   `json:"buncleCustomerId"`
+	BundleId          string   `json:"bundleId" validate:"required"`
+	BundleTimeStamp   string   `json:"bundleTimeStamp" validate:"required"`
+	BundleClientId    int64    `json:"bundleClientId" validate:"required"`
+	BundleCustomerId  string   `json:"buncleCustomerId" validate:"required"`
 	BundleAnnotations []string `json:"bundleAnnotations"`
 }
 
 type TelemetryBundleFooter struct {
-	Checksum string `json:"checksum"`
+	Checksum string `json:"checksum" validate:"required"`
 }
 
 //Database Mapping
