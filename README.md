@@ -37,12 +37,30 @@ of data items, bundles and reports.
 
 # Testing
 
-The tests can be run from within the telemetry repo as follows:
+## Verification Testing
+The verification tests can be run from within the telemetry repo as follows:
 
 ```
 % cd telemetry
 % make test
 ```
+
+## Local Developer Testing
+First ensure that the SUSE/telemetry-server is running with the local
+server config file. Then run the cmd/generator tool from the telemetry
+tool as follows to generate telemetry data, including a DEVTEST tag,
+and submit telemetry to the server, self-registering as a client with
+the server if needed:
+
+```
+% cd telemetry/cmd/generator
+% go run . --config ../../testdata/config/localClient.yaml \
+      --telemetry=SLE-SERVER-SCCHwInfo --tag DEVTEST \
+      ../../testdata/telemetry/SLE-SERVER-SCCHwInfo/sle12sp5-test.json
+```
+
+If you just want to generate but not submit, then you can include the
+--nosubmit option.
 
 
 # See Also
