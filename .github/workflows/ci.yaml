@@ -1,0 +1,23 @@
+---
+
+name: Run Pull Request CI Verification
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    container:
+      image: registry.suse.com/bci/golang:1.21-openssl
+
+    steps:
+      - name: Checkout PR sources
+        uses: actions/checkout@v4
+        with:
+          path: telemetry
+
+      - name: Run tests in verbose mode
+        run: cd telemetry && make test-verbose

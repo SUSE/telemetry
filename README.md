@@ -1,5 +1,5 @@
 # telemetry
-Proof of Concept Telemetry scaffolding
+SUSE Telemetry Client Library and associated client CLI tools
 
 # What's available
 
@@ -34,6 +34,16 @@ The pkg/types module defined useful common types
 ## pkg/lib
 The pkg/lib module provides functionality for managing the local staging
 of data items, bundles and reports.
+
+# Testing
+
+The tests can be run from within the telemetry repo as follows:
+
+```
+% cd telemetry
+% make test
+```
+
 
 # See Also
 See the companion telemetry-server repo for a basic implementation of
