@@ -1,0 +1,14 @@
+{
+  "hostname": "sle12sp5-test",
+  "distro_target": "sle-12-x86_64",
+  "hwinfo": {
+    "hostname": "sle12sp5-test",
+    "cpus": 2,
+    "sockets": 1,
+    "hypervisor": "KVM",
+    "arch": "x86_64",
+    "uuid": "192653D9-245A-438F-A3F6-4EED1A9C11F3",
+    "cloud_provider": "",
+    "mem_total": 4096
+  }
+}
