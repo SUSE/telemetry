@@ -40,7 +40,7 @@ func main() {
 	processor := tc.Processor()
 
 	if opts.items {
-		itemRows, err := processor.GetDataItemRows()
+		itemRows, err := processor.GetItemRows()
 		if err != nil {
 			log.Fatal(err.Error())
 		}

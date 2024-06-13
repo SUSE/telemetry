@@ -54,45 +54,48 @@ func (p *TelemetryProcessorImpl) setup(cfg *config.DBConfig) (err error) {
 	return
 }
 
-func (p *TelemetryProcessorImpl) cleanup() {
-	p.t.cleanup()
+func (p *TelemetryProcessorImpl) cleanup() error {
+	return p.t.cleanup()
 }
 
-func (p *TelemetryProcessorImpl) DataItemCount() (count int, err error) {
-	return p.t.DataItemCount()
+func (p *TelemetryProcessorImpl) ItemCount(bundleIds ...any) (count int, err error) {
+	return p.t.ItemCount(bundleIds...)
 }
 
-func (p *TelemetryProcessorImpl) BundleCount() (count int, err error) {
-	return p.t.BundleCount()
+func (p *TelemetryProcessorImpl) BundleCount(reportIds ...any) (count int, err error) {
+	return p.t.BundleCount(reportIds...)
 }
 
-func (p *TelemetryProcessorImpl) ReportCount() (count int, err error) {
-	return p.t.ReportCount()
+func (p *TelemetryProcessorImpl) ReportCount(ids ...any) (count int, err error) {
+	return p.t.ReportCount(ids...)
 }
 
-func (p *TelemetryProcessorImpl) GetDataItemRows() (dataitemsRows []*TelemetryDataItemRow, err error) {
-	return p.t.GetDataItems()
+func (p *TelemetryProcessorImpl) GetItemRows(bundleIds ...any) (dataitemsRows []*TelemetryDataItemRow, err error) {
+	return p.t.GetItemRows(bundleIds...)
 }
 
-func (p *TelemetryProcessorImpl) DeleteDataItem(dataItemRow *TelemetryDataItemRow) (err error) {
-	return p.t.DeleteDataItem(dataItemRow)
+func (p *TelemetryProcessorImpl) DeleteItem(dataItemRow *TelemetryDataItemRow) (err error) {
+	return p.t.DeleteItem(dataItemRow)
 }
 
-func (p *TelemetryProcessorImpl) GetBundleRows() (bundleRows []*TelemetryBundleRow, err error) {
-	return p.t.GetBundles()
+func (p *TelemetryProcessorImpl) GetBundleRows(reportIds ...any) (bundleRows []*TelemetryBundleRow, err error) {
+	return p.t.GetBundleRows(reportIds...)
 }
 
 func (p *TelemetryProcessorImpl) DeleteBundle(bundleRow *TelemetryBundleRow) (err error) {
 	return p.t.DeleteBundle(bundleRow)
 }
 
-func (p *TelemetryProcessorImpl) GetReportRows() (reportRows []*TelemetryReportRow, err error) {
-	return p.t.GetReports()
+func (p *TelemetryProcessorImpl) GetReportRows(ids ...any) (reportRows []*TelemetryReportRow, err error) {
+	return p.t.GetReportRows(ids...)
 }
 
 func (p *TelemetryProcessorImpl) DeleteReport(reportRow *TelemetryReportRow) (err error) {
 	return p.t.DeleteReport(reportRow)
 }
+
+// validate TelemetryProcessorImpl implements the TelemetryProcessor interface
+var _ TelemetryProcessor = (*TelemetryProcessorImpl)(nil)
 
 func NewTelemetryProcessor(cfg *config.DBConfig) (TelemetryProcessor, error) {
 	log.Printf("NewTelemetryProcessor(%+v)", cfg)
@@ -121,7 +124,7 @@ func (p *TelemetryProcessorImpl) GenerateBundle(clientId int64, customerId strin
 	}
 
 	//List all items that are not associated with bundle yet
-	itemIDs, _, err := p.t.storer.GetItemsWithNoBundleAssociation()
+	itemIDs, _, err := p.t.storer.GetItems("NULL")
 	if err != nil {
 		return bundleRow, fmt.Errorf("unable to get items for bundle generation: %s", err.Error())
 	}
@@ -142,7 +145,7 @@ func (p *TelemetryProcessorImpl) GenerateReport(clientId int64, tags types.Tags)
 	}
 
 	//List all bundles that are not associated with report yet
-	bundleIDs, _, err := p.t.storer.GetBundlesWithNoReportAssociation()
+	bundleIDs, _, err := p.t.storer.GetBundles("NULL")
 
 	if err != nil {
 		return reportRow, fmt.Errorf("unable to get bundles for the report generation: %s", err.Error())
@@ -156,16 +159,6 @@ func (p *TelemetryProcessorImpl) GenerateReport(clientId int64, tags types.Tags)
 
 	return
 
-}
-
-func (p *TelemetryProcessorImpl) DataItemCountInBundle(bundleId string) (count int, err error) {
-	// Get a count of telemetry data items that is associated with a bundle
-	return p.t.DataItemCountInBundle(bundleId)
-}
-
-func (p *TelemetryProcessorImpl) BundleCountInReport(reportId string) (count int, err error) {
-	// Get a count of telemetry bundles that is associated with a report
-	return p.t.BundleCountInReport(reportId)
 }
 
 func (p *TelemetryProcessorImpl) ToReport(reportRow *TelemetryReportRow) (report TelemetryReport, err error) {
@@ -184,7 +177,7 @@ func (p *TelemetryProcessorImpl) ToReport(reportRow *TelemetryReportRow) (report
 		Checksum: reportRow.ReportChecksum,
 	}
 
-	bundleRows, err := p.t.storer.GetBundleRowsInAReport(reportRow.ReportId)
+	_, bundleRows, err := p.t.storer.GetBundles(reportRow.Id)
 
 	var bundles []TelemetryBundle
 
@@ -222,7 +215,7 @@ func (p *TelemetryProcessorImpl) ToBundle(bundleRow *TelemetryBundleRow) (bundle
 		Checksum: bundleRow.BundleChecksum,
 	}
 
-	itemRows, err := p.t.storer.GetDataItemRowsInABundle(bundleRow.BundleId)
+	_, itemRows, err := p.t.storer.GetItems(bundleRow.Id)
 	var items []TelemetryDataItem
 
 	for j := 0; j < len(itemRows); j++ {

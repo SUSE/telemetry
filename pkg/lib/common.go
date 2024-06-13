@@ -9,37 +9,31 @@ type TelemetryCommon interface {
 	setup(*config.DBConfig) error
 
 	// cleanup contents, for testing support
-	cleanup()
+	cleanup() error
 
 	// Get a count of telemetry data items that are not associated with a bundle
-	DataItemCount() (int, error)
+	ItemCount(bundleIds ...any) (int, error)
 
-	// Get a count of telemetry data items that are associated with a specific bundle
-	DataItemCountInBundle(bundleId string) (int, error)
-
-	// Get a count of telemetry bundles that are not associated with a report
-	BundleCount() (int, error)
-
-	// Get a count of telemetry bundles that are associated with a specific report
-	BundleCountInReport(reportId string) (int, error)
-
-	// Get a count of telemetry reports
-	ReportCount() (int, error)
-
-	// Get telemetry data items from the items table
-	GetDataItemRows() ([]*TelemetryDataItemRow, error)
+	// Get all telemetry data items from the items table
+	GetItemRows(bundleIds ...any) ([]*TelemetryDataItemRow, error)
 
 	// Delete a specified telemetry data item from the items table
-	DeleteDataItem(dataItemRow *TelemetryDataItemRow) error
+	DeleteItem(dataItemRow *TelemetryDataItemRow) error
+
+	// Get a count of telemetry bundles that are not associated with a report
+	BundleCount(bundleIds ...any) (int, error)
 
 	// Get telemetry bundles from the bundles table
-	GetBundleRows() ([]*TelemetryBundleRow, error)
+	GetBundleRows(reportIds ...any) ([]*TelemetryBundleRow, error)
 
 	// Delete a specified telemetry bundle from the bundles table
 	DeleteBundle(bundleRow *TelemetryBundleRow) error
 
+	// Get a count of telemetry reports
+	ReportCount(ids ...any) (int, error)
+
 	// Get telemetry reports from the reports table
-	GetReportRows() ([]*TelemetryReportRow, error)
+	GetReportRows(ids ...any) ([]*TelemetryReportRow, error)
 
 	// Delete a specified telemetry report from the reports table
 	DeleteReport(reportRow *TelemetryReportRow) error
@@ -57,75 +51,59 @@ func (t *TelemetryCommonImpl) setup(cfg *config.DBConfig) (err error) {
 func (t *TelemetryCommonImpl) cleanup() (err error) {
 	err = t.storer.dropTables()
 	return
-
 }
 
-func (t *TelemetryCommonImpl) DataItemCount() (count int, err error) {
-	// count of items that not have been associated with bundle yet
-	//_, dataitemRows, err := t.storer.GetItemsWithNoBundleAssociation()
-	//count = len(dataitemRows)
-	count, err = t.storer.GetDataItemCount()
+func (t *TelemetryCommonImpl) ItemCount(bundleIds ...any) (count int, err error) {
+	// count of items matched by specified bundleIds
+	count, err = t.storer.GetItemCount(bundleIds...)
 	return
 }
 
-func (t *TelemetryCommonImpl) BundleCount() (count int, err error) {
-	// count of bundles that not have been associated with report yet
-	count, err = t.storer.GetBundleCount()
+func (t *TelemetryCommonImpl) BundleCount(reportIds ...any) (count int, err error) {
+	// count of bundles matched by specified reportIds
+	count, err = t.storer.GetBundleCount(reportIds...)
 	return
 }
 
-func (t *TelemetryCommonImpl) ReportCount() (count int, err error) {
-	// count of reports
-	count, err = t.storer.GetReportCount()
+func (t *TelemetryCommonImpl) ReportCount(ids ...any) (count int, err error) {
+	// count of reports matched by specified ids
+	count, err = t.storer.GetReportCount(ids...)
 	return
 }
 
-func (t *TelemetryCommonImpl) GetDataItems() (dataitemRows []*TelemetryDataItemRow, err error) {
-	_, dataitemRows, err = t.storer.GetItemsWithNoBundleAssociation()
-	return
-}
-
-func (t *TelemetryCommonImpl) DeleteDataItem(dataItemRow *TelemetryDataItemRow) (err error) {
-	err = dataItemRow.Delete(t.storer.Conn)
+func (t *TelemetryCommonImpl) DeleteItem(itemRow *TelemetryDataItemRow) (err error) {
+	err = itemRow.Delete(t.storer.Conn)
 	return
 }
 
 func (t *TelemetryCommonImpl) DeleteBundle(bundleRow *TelemetryBundleRow) (err error) {
+	// foreign key constraint will trigger cascaded delete of
+	// associated items
 	err = bundleRow.Delete(t.storer.Conn)
 	return
 }
 
-func (t *TelemetryCommonImpl) GetBundles() (bundleRows []*TelemetryBundleRow, err error) {
-	_, bundleRows, err = t.storer.GetBundlesWithNoReportAssociation()
-	return
-}
-
-func (t *TelemetryCommonImpl) GetReports() (reportRows []*TelemetryReportRow, err error) {
-	_, reportRows, err = t.storer.GetReports()
-	return
-}
-
 func (t *TelemetryCommonImpl) DeleteReport(reportRow *TelemetryReportRow) (err error) {
-	//Delete the report
+	// foreign key constraints will trigger cascaded delete of
+	// associated bundles, and their associated items
 	err = reportRow.Delete(t.storer.Conn)
 	return
 }
 
-func (t *TelemetryCommonImpl) DataItemCountInBundle(bundleId string) (count int, err error) {
-	// Get a count of telemetry data items that is associated with a bundle
-	itemRows, err := t.storer.GetDataItemRowsInABundle(bundleId)
-	count = len(itemRows)
+func (t *TelemetryCommonImpl) GetItemRows(bundleIds ...any) (itemRows []*TelemetryDataItemRow, err error) {
+	_, itemRows, err = t.storer.GetItems(bundleIds...)
 	return
 }
 
-func (t *TelemetryCommonImpl) BundleCountInReport(reportId string) (count int, err error) {
-	// Get a count of telemetry bundles that is associated with a report
-	bundleRows, err := t.storer.GetBundleRowsInAReport(reportId)
-	count = len(bundleRows)
+func (t *TelemetryCommonImpl) GetBundleRows(reportIds ...any) (bundleRows []*TelemetryBundleRow, err error) {
+	_, bundleRows, err = t.storer.GetBundles(reportIds...)
 	return
 }
 
-func (t *TelemetryCommonImpl) GetBundleRowsInReport(reportId string) (bundleRows []*TelemetryBundleRow, err error) {
-	bundleRows, err = t.storer.GetBundleRowsInAReport(reportId)
+func (t *TelemetryCommonImpl) GetReportRows(ids ...any) (reportRows []*TelemetryReportRow, err error) {
+	_, reportRows, err = t.storer.GetReports(ids...)
 	return
 }
+
+// validate that TelemetryCommomImpl implements TelemetryCommon interface
+var _ TelemetryCommon = (*TelemetryCommonImpl)(nil)

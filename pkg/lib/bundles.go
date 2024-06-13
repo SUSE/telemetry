@@ -56,7 +56,10 @@ const bundlesColumns = `(
 	bundleAnnotations TEXT,
 	bundleChecksum VARCHAR(256),
 	reportId  INTEGER NULL,
-	FOREIGN KEY (reportId) REFERENCES reports(id)
+	CONSTRAINT bundles_reportId
+	  FOREIGN KEY (reportId)
+		REFERENCES reports(id)
+	  ON DELETE CASCADE
 )`
 
 type TelemetryBundleRow struct {
