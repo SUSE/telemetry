@@ -135,7 +135,7 @@ func (t *TelemetryProcessorTestSuite) TestCreateBundle() {
 	}
 
 	// Validate the item count in the bundle generated
-	count, _ := telemetryprocessor.DataItemCountInBundle(bundleRow.BundleId)
+	count, _ := telemetryprocessor.ItemCount(bundleRow.Id)
 	assert.Equal(t.T(), 2, count)
 
 	telemetryprocessor.cleanup()
@@ -161,63 +161,164 @@ func (t *TelemetryProcessorTestSuite) TestReport() {
 			env.cleanup()
 			env.setup()
 			telemetryprocessor := env.telemetryprocessor
-			itemsCount, _ := telemetryprocessor.DataItemCount()
-			assert.Equal(t.T(), 0, itemsCount)
-			bundlesCount, _ := telemetryprocessor.BundleCount()
-			assert.Equal(t.T(), 0, bundlesCount)
+
+			// validate that there are no items present
+			allItemsCount, _ := telemetryprocessor.ItemCount()
+			assert.Equal(t.T(), 0, allItemsCount)
+
+			// validate that there are no unassigned items present
+			unassignedItemsCount, _ := telemetryprocessor.ItemCount("NULL")
+			assert.Equal(t.T(), 0, unassignedItemsCount)
+
+			// validate that there are no bundles present
+			allBundlesCount, _ := telemetryprocessor.BundleCount()
+			assert.Equal(t.T(), 0, allBundlesCount)
+
+			// validate that there are no unassigned bundles present
+			unassignedBundlesCount, _ := telemetryprocessor.BundleCount("NULL")
+			assert.Equal(t.T(), 0, unassignedBundlesCount)
+
+			// validate that there are no reports present
 			reportsCount, _ := telemetryprocessor.ReportCount()
 			assert.Equal(t.T(), 0, reportsCount)
 
+			// add some unassigned data items
 			err := addDataItems(5, telemetryprocessor)
 			assert.NoError(t.T(), err, "Adding first set of dataitems failed")
-			itemsCount, _ = telemetryprocessor.DataItemCount()
-			assert.Equal(t.T(), 5, itemsCount)
 
+			// validate the total and unassigned item counts
+			allItemsCount, _ = telemetryprocessor.ItemCount()
+			assert.Equal(t.T(), 5, allItemsCount)
+			unassignedItemsCount, _ = telemetryprocessor.ItemCount("NULL")
+			assert.Equal(t.T(), 5, unassignedItemsCount)
+
+			// validate that we get the expected number of unassigned item rows
+			itemRows, err := telemetryprocessor.GetItemRows("NULL")
+			assert.NoError(t.T(), err)
+			assert.Equal(t.T(), 5, len(itemRows))
+
+			// validate that we can render items
+			for _, itemRow := range itemRows {
+				item, err := telemetryprocessor.ToItem(itemRow)
+				assert.NoError(t.T(), err)
+				assert.Equal(t.T(), item.Header.TelemetryId, itemRow.ItemId)
+			}
+
+			// generate a bundle to hold unassigned items
 			btags := types.Tags{types.Tag("key1=value1"), types.Tag("key2")}
-
 			bundleRow, berr := telemetryprocessor.GenerateBundle(1, "customer id", btags)
 			if berr != nil {
 				log.Printf("Failed to create the bundle")
 				t.Fail("Test failed to create the bundle")
 			}
 
+			// validate the total and unassigned item counts
+			allItemsCount, _ = telemetryprocessor.ItemCount()
+			assert.Equal(t.T(), 5, allItemsCount)
+			unassignedItemsCount, _ = telemetryprocessor.ItemCount("NULL")
+			assert.Equal(t.T(), 0, unassignedItemsCount)
+
 			// Validate the item count in the bundle generated
-			count, _ := telemetryprocessor.DataItemCountInBundle(bundleRow.BundleId)
+			count, _ := telemetryprocessor.ItemCount(bundleRow.Id)
 			assert.Equal(t.T(), 5, count)
 
+			// validate the total and unassigned bundle counts
+			allBundlesCount, _ = telemetryprocessor.BundleCount()
+			assert.Equal(t.T(), 1, allBundlesCount)
+			unassignedBundlesCount, _ = telemetryprocessor.BundleCount("NULL")
+			assert.Equal(t.T(), 1, unassignedBundlesCount)
+
+			// Add more items
 			err = addDataItems(5, telemetryprocessor)
 			assert.NoError(t.T(), err, "Adding second set of dataitems failed")
-			itemsCount, _ = telemetryprocessor.DataItemCount()
-			assert.Equal(t.T(), 5, itemsCount)
 
+			// validate the total and unassigned item counts
+			allItemsCount, _ = telemetryprocessor.ItemCount()
+			assert.Equal(t.T(), 10, allItemsCount)
+			unassignedItemsCount, _ = telemetryprocessor.ItemCount("NULL")
+			assert.Equal(t.T(), 5, unassignedItemsCount)
+
+			// generate a second bundle
 			btags1 := types.Tags{types.Tag("key3=value3"), types.Tag("key4")}
 			bundleRow, berr = telemetryprocessor.GenerateBundle(1, "customer id", btags1)
 			if berr != nil {
 				log.Printf("Failed to create the bundle")
 				t.Fail("Test failed to create the bundle")
 			}
+
+			// validate the total and unassigned item counts
+			allItemsCount, _ = telemetryprocessor.ItemCount()
+			assert.Equal(t.T(), 10, allItemsCount)
+			unassignedItemsCount, _ = telemetryprocessor.ItemCount("NULL")
+			assert.Equal(t.T(), 0, unassignedItemsCount)
+
 			// Validate the item count in the bundle generated
-			count, _ = telemetryprocessor.DataItemCountInBundle(bundleRow.BundleId)
+			count, _ = telemetryprocessor.ItemCount(bundleRow.Id)
 			assert.Equal(t.T(), 5, count)
 
+			// validate the total and unassigned bundle counts
+			allBundlesCount, _ = telemetryprocessor.BundleCount()
+			assert.Equal(t.T(), 2, allBundlesCount)
+			unassignedBundlesCount, _ = telemetryprocessor.BundleCount("NULL")
+			assert.Equal(t.T(), 2, unassignedBundlesCount)
+
+			// validate that we get the expected number of unassigned bundle rows
+			bundleRows, err := telemetryprocessor.GetBundleRows("NULL")
+			assert.NoError(t.T(), err)
+			assert.Equal(t.T(), 2, len(bundleRows))
+
+			// validate that we can render bundles
+			for _, bundleRow := range bundleRows {
+				bundle, err := telemetryprocessor.ToBundle(bundleRow)
+				assert.NoError(t.T(), err)
+				assert.Equal(t.T(), bundle.Header.BundleId, bundleRow.BundleId)
+			}
+
+			// generate a report consuming available bundles
 			rtags := types.Tags{types.Tag("key5=value5"), types.Tag("key6")}
 			reportRow, err := telemetryprocessor.GenerateReport(123456, rtags)
 			assert.NoError(t.T(), err, "Report failed")
 
-			// Validate the bundle count in the report generated
-			count, _ = telemetryprocessor.BundleCountInReport(reportRow.ReportId)
+			// validate the total and unassigned bundle counts
+			allBundlesCount, _ = telemetryprocessor.BundleCount()
+			assert.Equal(t.T(), 2, allBundlesCount)
+			unassignedBundlesCount, _ = telemetryprocessor.BundleCount("NULL")
+			assert.Equal(t.T(), 0, unassignedBundlesCount)
+
+			// validate the bundle count in the report generated
+			count, _ = telemetryprocessor.BundleCount(reportRow.Id)
 			assert.Equal(t.T(), 2, count)
 
-			bundlesCount, _ = telemetryprocessor.BundleCount()
-			assert.Equal(t.T(), 0, bundlesCount)
+			// validate the total number of reports
+			reportsCount, _ = telemetryprocessor.ReportCount()
+			assert.Equal(t.T(), 1, reportsCount)
 
+			// validate that we can get the report rows and that the count is as expected
 			reportRows, err := telemetryprocessor.GetReportRows()
 			assert.NoError(t.T(), err)
 			assert.Equal(t.T(), 1, len(reportRows))
 
-			report, err := telemetryprocessor.ToReport(reportRow)
-			assert.NoError(t.T(), err)
-			assert.Equal(t.T(), report.Header.ReportId, reportRow.ReportId)
+			// validate that we can render reports
+			for _, reportRow := range reportRows {
+				report, err := telemetryprocessor.ToReport(reportRow)
+				assert.NoError(t.T(), err)
+				assert.Equal(t.T(), report.Header.ReportId, reportRow.ReportId)
+
+				// delete the report
+				telemetryprocessor.DeleteReport(reportRow)
+			}
+
+			// validate that there are no reports present after deleting reports
+			reportsCount, _ = telemetryprocessor.ReportCount()
+			assert.Equal(t.T(), 0, reportsCount)
+
+			// validate that there are no bundles present after cascaded delete
+			allBundlesCount, _ = telemetryprocessor.BundleCount()
+			assert.Equal(t.T(), 0, allBundlesCount)
+
+			// validate that there are no items present after cascaded delete
+			allItemsCount, _ = telemetryprocessor.ItemCount()
+			assert.Equal(t.T(), 0, allItemsCount)
 
 			env.cleanup()
 		})

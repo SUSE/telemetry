@@ -50,8 +50,7 @@ const reportsColumns = `(
 	reportTimestamp VARCHAR(32) NOT NULL,
 	reportClientId INTEGER NOT NULL,
 	reportAnnotations TEXT,
-	reportChecksum VARCHAR(256),
-	FOREIGN KEY (reportId) REFERENCES bundles(id)
+	reportChecksum VARCHAR(256)
 )`
 
 type TelemetryReportRow struct {

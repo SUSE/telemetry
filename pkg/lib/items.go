@@ -65,7 +65,10 @@ const itemsColumns = `(
 	itemData BLOB NOT NULL,
 	itemChecksum VARCHAR(256),
 	bundleId INTEGER NULL,
-	FOREIGN KEY (bundleId) REFERENCES bundles(id)
+	CONSTRAINT items_bundleId
+	  FOREIGN KEY (bundleId)
+		REFERENCES bundles(id)
+	  ON DELETE CASCADE
 )`
 
 type TelemetryDataItemRow struct {

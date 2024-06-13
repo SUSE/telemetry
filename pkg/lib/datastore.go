@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/SUSE/telemetry/pkg/config"
 	_ "github.com/mattn/go-sqlite3"
@@ -23,18 +24,42 @@ func NewDatabaseStore(dbConfig config.DBConfig) (ds *DatabaseStore, err error) {
 
 	switch dbConfig.Driver {
 	case "sqlite3":
-		if _, err := os.Stat(dbConfig.Params); os.IsNotExist(err) {
-			dirPath := filepath.Dir(dbConfig.Params)
+		dbPath, opts, optsFound := strings.Cut(dbConfig.Params, "?")
+
+		// ensure that the path to the DB file exists and that we can access it
+		if _, err := os.Stat(dbPath); os.IsNotExist(err) {
+			dirPath := filepath.Dir(dbPath)
 			os.MkdirAll(dirPath, 0700)
 
-			file, err := os.Create(dbConfig.Params)
+			// create file if it doesn't already exist, without truncating it if it does.
+			file, err := os.OpenFile(dbPath, os.O_RDONLY|os.O_CREATE, 0600)
 			if err != nil {
 				log.Fatal(err.Error())
 				return nil, err
 			}
 			file.Close()
-			log.Println("created SQLite file", dbConfig.Params)
+			log.Println("created SQLite file", dbPath)
 		}
+
+		// exsure foreign_keys and journal_mode options are specified
+		if !optsFound {
+			opts = ""
+		}
+		extraOpts := []string{}
+		if !strings.Contains(opts, "_foreign_keys=") {
+			extraOpts = append(extraOpts, "_foreign_keys=on")
+		}
+		if !strings.Contains(opts, "_journal_mode=") {
+			extraOpts = append(extraOpts, "_journal_mode=WAL")
+		}
+		if len(extraOpts) > 0 {
+			if len(opts) > 0 {
+				opts += "&"
+			}
+			opts += strings.Join(extraOpts, "&")
+		}
+
+		dbConfig.Params = dbPath + "?" + opts
 
 		ds.Setup(dbConfig)
 		ds.Connect()
@@ -90,41 +115,98 @@ var dbTables = map[string]string{
 	"reports": reportsColumns,
 }
 
-func (d *DatabaseStore) GetItemsWithNoBundleAssociation() (itemIDs []int64, dataitemRows []*TelemetryDataItemRow, err error) {
-	rows, err := d.Conn.Query("SELECT * FROM items WHERE bundleId IS NULL")
+func genSqlPopulateQuery(table string, fields []string, matchField string, inputValues []any) (query string, outputValues []any) {
+	query = `SELECT ` + strings.Join(fields, ", ") + ` FROM ` + table
+	outputValues = inputValues
+
+	numValues := len(inputValues)
+	if numValues > 0 {
+		query += ` WHERE ` + matchField
+		switch {
+		case inputValues[0] == "NULL":
+			query += " IS NULL"
+			// clear the
+			outputValues = []any{}
+		default:
+			query += " IN (?" + strings.Repeat(", ?", numValues-1) + ")"
+		}
+	}
+
+	return
+}
+
+func genSqlCountQuery(table, countField, matchField string, inputValues []any) (query string, outputValues []any) {
+	query = `SELECT COUNT(` + countField + `) FROM ` + table
+	outputValues = inputValues
+
+	numValues := len(inputValues)
+	if numValues > 0 {
+		query += ` WHERE ` + matchField
+		switch {
+		case inputValues[0] == "NULL":
+			query += " IS NULL"
+			// clear the
+			outputValues = []any{}
+		default:
+			query += " IN (?" + strings.Repeat(", ?", numValues-1) + ")"
+		}
+	}
+
+	return
+}
+
+func (d *DatabaseStore) GetItems(bundleIds ...any) (itemRowIds []int64, itemRows []*TelemetryDataItemRow, err error) {
+	// generate the SQL populate query statement for the items table
+	query, queryBundleIds := genSqlPopulateQuery(
+		"items",
+		[]string{"id", "itemId", "itemType", "itemTimestamp", "itemAnnotations", "itemData", "itemChecksum", "bundleId"},
+		"bundleId",
+		bundleIds,
+	)
+
+	// NOTE: Query() extra args must be of type any hence queryIds is type []any
+	rows, err := d.Conn.Query(query, queryBundleIds...)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		var dataitemRow TelemetryDataItemRow
+		var itemRow TelemetryDataItemRow
 
 		if err := rows.Scan(
-			&dataitemRow.Id,
-			&dataitemRow.ItemId,
-			&dataitemRow.ItemType,
-			&dataitemRow.ItemTimestamp,
-			&dataitemRow.ItemAnnotations,
-			&dataitemRow.ItemData,
-			&dataitemRow.ItemChecksum,
-			&dataitemRow.BundleId); err != nil {
+			&itemRow.Id,
+			&itemRow.ItemId,
+			&itemRow.ItemType,
+			&itemRow.ItemTimestamp,
+			&itemRow.ItemAnnotations,
+			&itemRow.ItemData,
+			&itemRow.ItemChecksum,
+			&itemRow.BundleId); err != nil {
 			log.Fatal(err)
 		}
-		dataitemRows = append(dataitemRows, &dataitemRow)
-		itemIDs = append(itemIDs, dataitemRow.Id)
+		itemRows = append(itemRows, &itemRow)
+		itemRowIds = append(itemRowIds, itemRow.Id)
 	}
 
 	if err := rows.Err(); err != nil {
 		log.Fatal(err)
 	}
 
-	return itemIDs, dataitemRows, err
-
+	return itemRowIds, itemRows, err
 }
 
-func (d *DatabaseStore) GetBundlesWithNoReportAssociation() (bundleIDs []int64, bundleRows []*TelemetryBundleRow, err error) {
-	rows, err := d.Conn.Query("SELECT * FROM bundles WHERE reportId IS NULL")
+func (d *DatabaseStore) GetBundles(reportIds ...any) (bundleRowIds []int64, bundleRows []*TelemetryBundleRow, err error) {
+	// generate the SQL populate query statement for the bundles table
+	query, queryBundleIds := genSqlPopulateQuery(
+		"bundles",
+		[]string{"id", "bundleId", "bundleTimestamp", "bundleClientId", "bundleCustomerId", "bundleAnnotations", "bundleChecksum", "reportId"},
+		"reportId",
+		reportIds,
+	)
+
+	// NOTE: Query() extra args must be of type any hence queryIds is type []any
+	rows, err := d.Conn.Query(query, queryBundleIds...)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -145,15 +227,105 @@ func (d *DatabaseStore) GetBundlesWithNoReportAssociation() (bundleIDs []int64, 
 			log.Fatal(err)
 		}
 		bundleRows = append(bundleRows, &bundleRow)
-		bundleIDs = append(bundleIDs, bundleRow.Id)
+		bundleRowIds = append(bundleRowIds, bundleRow.Id)
 	}
 
 	if err := rows.Err(); err != nil {
 		log.Fatal(err)
 	}
 
-	return bundleIDs, bundleRows, err
+	return bundleRowIds, bundleRows, err
 
+}
+
+func (d *DatabaseStore) GetReports(ids ...any) (reportRowIds []int64, reportRows []*TelemetryReportRow, err error) {
+	// generate the SQL populate query statement for the reports table
+	query, queryIds := genSqlPopulateQuery(
+		"reports",
+		[]string{"id", "reportId", "reportTimestamp", "reportClientId", "reportAnnotations", "reportChecksum"},
+		"id",
+		ids,
+	)
+
+	// NOTE: Query() extra args must be of type any hence queryIds is type []any
+	rows, err := d.Conn.Query(query, queryIds...)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var reportRow TelemetryReportRow
+
+		if err := rows.Scan(
+			&reportRow.Id,
+			&reportRow.ReportId,
+			&reportRow.ReportTimestamp,
+			&reportRow.ReportClientId,
+			&reportRow.ReportAnnotations,
+			&reportRow.ReportChecksum); err != nil {
+			log.Fatal(err)
+		}
+		reportRows = append(reportRows, &reportRow)
+		reportRowIds = append(reportRowIds, reportRow.Id)
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+	return reportRowIds, reportRows, err
+}
+
+func (d *DatabaseStore) GetItemCount(bundleIds ...any) (int, error) {
+	var count int
+	// generate the SQL count query statement for the items table
+	query, queryIds := genSqlCountQuery(
+		"items",
+		"id",
+		"bundleId",
+		bundleIds,
+	)
+	// NOTE: Query() extra args must be of type any hence queryIds is type []any
+	err := d.Conn.QueryRow(query, queryIds...).Scan(&count)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return count, err
+}
+
+func (d *DatabaseStore) GetBundleCount(reportIds ...any) (int, error) {
+	var count int
+	// generate the SQL count query statement for the bundles table
+	query, queryIds := genSqlCountQuery(
+		"bundles",
+		"id",
+		"reportId",
+		reportIds,
+	)
+	// NOTE: Query() extra args must be of type any hence queryIds is type []any
+	err := d.Conn.QueryRow(query, queryIds...).Scan(&count)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return count, err
+}
+
+func (d *DatabaseStore) GetReportCount(ids ...any) (int, error) {
+	var count int
+	// generate the SQL count query statement for the reports table
+	query, queryIds := genSqlCountQuery(
+		"reports",
+		"id",
+		"id",
+		ids,
+	)
+	// NOTE: Query() extra args must be of type any hence queryIds is type []any
+	err := d.Conn.QueryRow(query, queryIds...).Scan(&count)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return count, err
 }
 
 func (d *DatabaseStore) GetDataItemRowsInABundle(bundleId string) (itemRows []*TelemetryDataItemRow, err error) {
@@ -223,65 +395,6 @@ func (d *DatabaseStore) GetBundleRowsInAReport(reportId string) (bundleRows []*T
 
 	return bundleRows, err
 
-}
-
-func (d *DatabaseStore) GetReports() (reportIDs []int64, reportRows []*TelemetryReportRow, err error) {
-
-	rows, err := d.Conn.Query("SELECT * FROM reports")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var reportRow TelemetryReportRow
-
-		if err := rows.Scan(
-			&reportRow.Id,
-			&reportRow.ReportId,
-			&reportRow.ReportTimestamp,
-			&reportRow.ReportClientId,
-			&reportRow.ReportAnnotations,
-			&reportRow.ReportChecksum); err != nil {
-			log.Fatal(err)
-		}
-		reportRows = append(reportRows, &reportRow)
-		reportIDs = append(reportIDs, reportRow.Id)
-	}
-
-	if err := rows.Err(); err != nil {
-		log.Fatal(err)
-	}
-
-	return reportIDs, reportRows, err
-
-}
-
-func (d *DatabaseStore) GetDataItemCount() (int, error) {
-	var count int
-	err := d.Conn.QueryRow("SELECT COUNT(*) FROM items WHERE bundleId IS NULL").Scan(&count)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return count, err
-}
-
-func (d *DatabaseStore) GetBundleCount() (int, error) {
-	var count int
-	err := d.Conn.QueryRow("SELECT COUNT(*) FROM bundles WHERE reportId IS NULL").Scan(&count)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return count, err
-}
-
-func (d *DatabaseStore) GetReportCount() (int, error) {
-	var count int
-	err := d.Conn.QueryRow("SELECT COUNT(*) FROM reports").Scan(&count)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return count, err
 }
 
 // only for testing
