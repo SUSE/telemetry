@@ -30,13 +30,21 @@ type TelemetryAuth struct {
 	ClientId  int64                    `json:"clientId"`
 	Token     types.TelemetryAuthToken `json:"token"`
 	IssueDate types.TelemetryTimeStamp `json:"issueDate"`
+
+	tokenSha256 types.TelemetryAuthToken
 }
 
-func (t *TelemetryAuth) HashToken(token types.TelemetryAuthToken) {
+func (t *TelemetryAuth) TokenSha256(token types.TelemetryAuthToken) types.TelemetryAuthToken {
+	if t.tokenSha256 != "" {
+		return t.tokenSha256
+	}
+
 	hash := sha256.New()
 	hash.Write([]byte(token))
-	hashedToken := hex.EncodeToString(hash.Sum(nil))
-	t.Token = types.TelemetryAuthToken(hashedToken)
+	hashedToken := types.TelemetryAuthToken(hex.EncodeToString(hash.Sum(nil)))
+	t.tokenSha256 = hashedToken
+
+	return t.tokenSha256
 }
 
 type TelemetryClient struct {
@@ -47,7 +55,6 @@ type TelemetryClient struct {
 
 func NewTelemetryClient(cfg *config.Config) (tc *TelemetryClient, err error) {
 	tc = &TelemetryClient{cfg: cfg}
-	tc.auth.HashToken(tc.auth.Token)
 	tc.processor, err = telemetrylib.NewTelemetryProcessor(&cfg.DataStores)
 	return
 }
@@ -140,6 +147,8 @@ func (tc *TelemetryClient) loadTelemetryAuth() (err error) {
 		return
 	}
 
+	tc.auth.TokenSha256(tc.auth.Token)
+
 	return
 }
 
@@ -179,7 +188,7 @@ func (tc *TelemetryClient) submitReport(report *telemetrylib.TelemetryReport) (e
 	}
 
 	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("X-AuthToken", string(tc.auth.Token))
+	req.Header.Add("X-AuthToken", string(tc.auth.TokenSha256(tc.auth.Token)))
 
 	httpClient := http.DefaultClient
 	resp, err := httpClient.Do(req)
