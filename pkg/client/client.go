@@ -2,7 +2,9 @@ package client
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -30,6 +32,13 @@ type TelemetryAuth struct {
 	IssueDate types.TelemetryTimeStamp `json:"issueDate"`
 }
 
+func (t *TelemetryAuth) HashToken(token types.TelemetryAuthToken) {
+	hash := sha256.New()
+	hash.Write([]byte(token))
+	hashedToken := hex.EncodeToString(hash.Sum(nil))
+	t.Token = types.TelemetryAuthToken(hashedToken)
+}
+
 type TelemetryClient struct {
 	cfg       *config.Config
 	auth      TelemetryAuth
@@ -38,6 +47,7 @@ type TelemetryClient struct {
 
 func NewTelemetryClient(cfg *config.Config) (tc *TelemetryClient, err error) {
 	tc = &TelemetryClient{cfg: cfg}
+	tc.auth.HashToken(tc.auth.Token)
 	tc.processor, err = telemetrylib.NewTelemetryProcessor(&cfg.DataStores)
 	return
 }
