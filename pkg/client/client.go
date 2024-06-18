@@ -147,7 +147,7 @@ func (tc *TelemetryClient) loadTelemetryAuth() (err error) {
 		return
 	}
 
-	tc.auth.TokenSha256(tc.auth.Token)
+	_ = tc.auth.TokenSha256(tc.auth.Token)
 
 	return
 }
