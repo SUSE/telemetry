@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// TestCompressGZIP tests the CompressGZIP function.
+// TestCompressDecompressGZIP tests both CompressGZIP and DecompressGZIP functions.
 func TestCompressDecompressGZIP(t *testing.T) {
 	mockData := []byte(`{"test": "This is a JSON file"}`)
 
