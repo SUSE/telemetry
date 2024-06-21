@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/SUSE/telemetry/pkg/config"
+	"github.com/SUSE/telemetry/pkg/utils"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -185,6 +186,14 @@ func (d *DatabaseStore) GetItems(bundleIds ...any) (itemRowIds []int64, itemRows
 			&itemRow.BundleId); err != nil {
 			log.Fatal(err)
 		}
+
+		// ItemData is stored as compressed data
+		decompressedItemData, err := utils.DecompressGZIP(itemRow.ItemData)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		itemRow.ItemData = decompressedItemData
 		itemRows = append(itemRows, &itemRow)
 		itemRowIds = append(itemRowIds, itemRow.Id)
 	}

@@ -77,7 +77,7 @@ type TelemetryDataItemRow struct {
 	ItemType        string
 	ItemTimestamp   string
 	ItemAnnotations string
-	ItemData        string
+	ItemData        []byte
 	ItemChecksum    string
 	BundleId        sql.NullInt64
 }
@@ -94,7 +94,7 @@ func NewTelemetryDataItemRow(telemetry types.TelemetryType, tags types.Tags, mar
 	dataItemRow.ItemType = item.Header.TelemetryType
 	dataItemRow.ItemTimestamp = item.Header.TelemetryTimeStamp
 	dataItemRow.ItemAnnotations = strings.Join(item.Header.TelemetryAnnotations, ",")
-	dataItemRow.ItemData = string(marshaledData)
+	dataItemRow.ItemData = marshaledData
 	dataItemRow.ItemChecksum = item.Footer.Checksum
 
 	return dataItemRow, nil
@@ -113,18 +113,22 @@ func (t *TelemetryDataItemRow) Exists(db *sql.DB) bool {
 }
 
 func (t *TelemetryDataItemRow) Insert(db *sql.DB) (err error) {
+	compressedItemData, err := utils.CompressGZIP(t.ItemData)
+	if err != nil {
+		return
+	}
 	res, err := db.Exec(
 		`INSERT INTO items(ItemId, ItemType, ItemTimestamp, ItemAnnotations, ItemData, ItemChecksum, BundleId) VALUES(?, ?, ?, ?, ?, ?, NULL)`,
-		t.ItemId, t.ItemType, t.ItemTimestamp, t.ItemAnnotations, fmt.Sprint(t.ItemData), t.ItemChecksum,
+		t.ItemId, t.ItemType, t.ItemTimestamp, t.ItemAnnotations, compressedItemData, t.ItemChecksum,
 	)
 	if err != nil {
 		log.Printf("failed to add telemetryData entry with telemetryId %q: %s", t.ItemId, err.Error())
-		return err
+		return
 	}
 	id, err := res.LastInsertId()
 	if err != nil {
 		log.Printf("ERR: failed to retrieve id for inserted telemetryData %q: %s", t.ItemId, err.Error())
-		return err
+		return
 	}
 	t.Id = id
 	t.BundleId = sql.NullInt64{Int64: 0, Valid: false}

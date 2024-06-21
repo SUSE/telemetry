@@ -250,7 +250,7 @@ func (p *TelemetryProcessorImpl) ToItem(itemRow *TelemetryDataItemRow) (item Tel
 		Checksum: itemRow.ItemChecksum,
 	}
 
-	data, err := utils.DeserializeMap(itemRow.ItemData)
+	data, err := utils.DeserializeMap(string(itemRow.ItemData))
 
 	item = TelemetryDataItem{
 		Header:        itemHeader,
