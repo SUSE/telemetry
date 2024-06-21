@@ -1,8 +1,6 @@
 package telemetrylib
 
 import (
-	"bytes"
-	"compress/gzip"
 	"fmt"
 	"log"
 	"strings"
@@ -21,12 +19,6 @@ type TelemetryProcessor interface {
 		content []byte,
 		tags types.Tags,
 	) (err error)
-
-	// Data compression method
-	CompressData(
-		data []byte,
-		format string,
-	) (compressedData []byte, err error)
 
 	// Generate telemetry bundle
 	GenerateBundle(
@@ -115,48 +107,13 @@ func NewTelemetryProcessor(cfg *config.DBConfig) (TelemetryProcessor, error) {
 }
 
 func (p *TelemetryProcessorImpl) AddData(telemetry types.TelemetryType, marshaledData []byte, tags types.Tags) (err error) {
-	compressedData, err := p.CompressData(marshaledData, "gzip")
-	if err != nil {
-		return fmt.Errorf("unable to compress telemetry data: %s", err.Error())
-	}
-	dataItemRow, err := NewTelemetryDataItemRow(telemetry, tags, compressedData)
+	dataItemRow, err := NewTelemetryDataItemRow(telemetry, tags, marshaledData)
 	if err != nil {
 		return fmt.Errorf("unable to create telemetry data: %s", err.Error())
 	}
 
 	err = dataItemRow.Insert(p.t.storer.Conn)
 	return
-}
-
-func (p *TelemetryProcessorImpl) CompressData(marshaledData []byte, format string) (compressedData []byte, err error) {
-	switch format {
-	case "gzip":
-		zd, err := p.compressGZIP(marshaledData)
-		return zd.Bytes(), err
-	}
-	return
-}
-
-func (p *TelemetryProcessorImpl) compressGZIP(marshaledData []byte) (compressedData bytes.Buffer, err error) {
-	var encoder *gzip.Writer
-	var tmpBuffer bytes.Buffer
-
-	encoder, err = gzip.NewWriterLevel(&tmpBuffer, gzip.BestCompression)
-	if err != nil {
-		return tmpBuffer, err
-	}
-
-	_, err = encoder.Write(marshaledData)
-	if err != nil {
-		return tmpBuffer, err
-	}
-	defer encoder.Close()
-
-	if err := encoder.Close(); err != nil {
-		return tmpBuffer, err
-	}
-
-	return tmpBuffer, nil
 }
 
 func (p *TelemetryProcessorImpl) GenerateBundle(clientId int64, customerId string, tags types.Tags) (bundleRow *TelemetryBundleRow, err error) {
@@ -293,7 +250,7 @@ func (p *TelemetryProcessorImpl) ToItem(itemRow *TelemetryDataItemRow) (item Tel
 		Checksum: itemRow.ItemChecksum,
 	}
 
-	data, err := utils.DeserializeMap(itemRow.ItemData)
+	data, err := utils.DeserializeMap(string(itemRow.ItemData))
 
 	item = TelemetryDataItem{
 		Header:        itemHeader,
