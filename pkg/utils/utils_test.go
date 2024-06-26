@@ -9,19 +9,19 @@ import (
 func TestCompressDecompressGZIP(t *testing.T) {
 	mockData := []byte(`{"test": "This is a JSON file"}`)
 
-	// Compress the data
+	// Compress data
 	compressedData, err := CompressGZIP(mockData)
 	if err != nil {
 		t.Fatalf("Error compressing data: %v", err)
 	}
 
-	// Decompress the data to verify
+	// Decompress data to verify
 	decompressedData, err := DecompressGZIP(compressedData)
 	if err != nil {
 		t.Fatalf("Error decompressing data: %v", err)
 	}
 
 	if !bytes.Equal(mockData, decompressedData) {
-		t.Fatalf("Decompressed data does not match original data:\n Expected: %v, Got: %v", mockData, decompressedData)
+		t.Fatalf("Decompressed data does not match original data:\n Expected: %v\n Got: %v", string(mockData), string(decompressedData))
 	}
 }

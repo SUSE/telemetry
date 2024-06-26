@@ -160,7 +160,7 @@ func (d *DatabaseStore) GetItems(bundleIds ...any) (itemRowIds []int64, itemRows
 	// generate the SQL populate query statement for the items table
 	query, queryBundleIds := genSqlPopulateQuery(
 		"items",
-		[]string{"id", "itemId", "itemType", "itemTimestamp", "itemAnnotations", "itemData", "itemChecksum", "bundleId"},
+		[]string{"id", "itemId", "itemType", "itemTimestamp", "itemAnnotations", "itemData", "itemChecksum", "compressed", "bundleId"},
 		"bundleId",
 		bundleIds,
 	)
@@ -183,17 +183,21 @@ func (d *DatabaseStore) GetItems(bundleIds ...any) (itemRowIds []int64, itemRows
 			&itemRow.ItemAnnotations,
 			&itemRow.ItemData,
 			&itemRow.ItemChecksum,
+			&itemRow.Compressed,
 			&itemRow.BundleId); err != nil {
 			log.Fatal(err)
 		}
 
-		// ItemData is stored as compressed data
-		decompressedItemData, err := utils.DecompressGZIP(itemRow.ItemData)
-		if err != nil {
-			log.Fatal(err)
+		// ItemData can be stored as compressed data
+		var itemData []byte
+		if itemRow.Compressed {
+			itemData, err = utils.DecompressGZIP(itemRow.ItemData)
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 
-		itemRow.ItemData = decompressedItemData
+		itemRow.ItemData = itemData
 		itemRows = append(itemRows, &itemRow)
 		itemRowIds = append(itemRowIds, itemRow.Id)
 	}
