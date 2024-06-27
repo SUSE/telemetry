@@ -16,6 +16,7 @@ import (
 	telemetrylib "github.com/SUSE/telemetry/pkg/lib"
 	"github.com/SUSE/telemetry/pkg/restapi"
 	"github.com/SUSE/telemetry/pkg/types"
+	"github.com/SUSE/telemetry/pkg/utils"
 )
 
 const (
@@ -301,9 +302,14 @@ func (tc *TelemetryClient) Register() (err error) {
 }
 
 func (tc *TelemetryClient) Generate(telemetry types.TelemetryType, content []byte, tags types.Tags) error {
+	log.Printf("Generated Telemetry:\nName: %q\nTags: %v\nContent: %s\nSize: %v\n",
+		telemetry, tags, content, utils.HumanReadableSize(content))
+	// Enforce size limits
+	// This will be a method in /pkg/lib/limits.go
+	if len(content) >= 200000 {
+		log.Fatal("Nope")
+	}
 	// Add telemetry data item to DataItem data store
-	log.Printf("Generated Telemetry: Name: %q, Tags: %v, Content: %s\n",
-		telemetry, tags, content)
 	tc.processor.AddData(telemetry, content, tags)
 
 	return nil
