@@ -160,7 +160,7 @@ func (d *DatabaseStore) GetItems(bundleIds ...any) (itemRowIds []int64, itemRows
 	// generate the SQL populate query statement for the items table
 	query, queryBundleIds := genSqlPopulateQuery(
 		"items",
-		[]string{"id", "itemId", "itemType", "itemTimestamp", "itemAnnotations", "itemData", "itemChecksum", "bundleId"},
+		[]string{"id", "itemId", "itemType", "itemTimestamp", "itemAnnotations", "itemData", "itemChecksum", "compression", "bundleId"},
 		"bundleId",
 		bundleIds,
 	)
@@ -183,17 +183,14 @@ func (d *DatabaseStore) GetItems(bundleIds ...any) (itemRowIds []int64, itemRows
 			&itemRow.ItemAnnotations,
 			&itemRow.ItemData,
 			&itemRow.ItemChecksum,
+			&itemRow.Compression,
 			&itemRow.BundleId); err != nil {
 			log.Fatal(err)
 		}
 
-		// ItemData is stored as compressed data
-		decompressedItemData, err := utils.DecompressGZIP(itemRow.ItemData)
-		if err != nil {
-			log.Fatal(err)
-		}
+		// ItemData can be stored as compressed data
+		itemRow.ItemData, err = utils.ShouldDecompress(itemRow.ItemData, itemRow.Compression)
 
-		itemRow.ItemData = decompressedItemData
 		itemRows = append(itemRows, &itemRow)
 		itemRowIds = append(itemRowIds, itemRow.Id)
 	}
@@ -339,7 +336,7 @@ func (d *DatabaseStore) GetReportCount(ids ...any) (int, error) {
 
 func (d *DatabaseStore) GetDataItemRowsInABundle(bundleId string) (itemRows []*TelemetryDataItemRow, err error) {
 	//perform a join between the items table and the bundle table to filter the items by the bundle ID.
-	rows, err := d.Conn.Query(`SELECT items.id, items.itemId, items.itemType, items.itemTimestamp, items.itemAnnotations, items.itemData, items.itemChecksum, items.bundleId FROM items JOIN bundles ON items.bundleId = bundles.id WHERE bundles.bundleId = ?`, bundleId)
+	rows, err := d.Conn.Query(`SELECT items.id, items.itemId, items.itemType, items.itemTimestamp, items.itemAnnotations, items.itemData, items.itemChecksum, items.compression, items.bundleId FROM items JOIN bundles ON items.bundleId = bundles.id WHERE bundles.bundleId = ?`, bundleId)
 
 	if err != nil {
 		log.Fatal(err)
@@ -356,9 +353,13 @@ func (d *DatabaseStore) GetDataItemRowsInABundle(bundleId string) (itemRows []*T
 			&dataitemRow.ItemAnnotations,
 			&dataitemRow.ItemData,
 			&dataitemRow.ItemChecksum,
+			&dataitemRow.Compression,
 			&dataitemRow.BundleId); err != nil {
 			log.Fatal(err)
 		}
+
+		// ItemData can be stored as compressed data
+		dataitemRow.ItemData, err = utils.ShouldDecompress(dataitemRow.ItemData, dataitemRow.Compression)
 
 		itemRows = append(itemRows, &dataitemRow)
 
