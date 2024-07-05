@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 
 	"gopkg.in/yaml.v3"
@@ -45,7 +46,7 @@ func NewConfig(cfgFile string) (*Config, error) {
 
 	_, err := os.Stat(cfgFile)
 	if os.IsNotExist(err) {
-		log.Printf("config file '%s' doesn't exist. Using default configuration.", cfgFile)
+		slog.Warn("config file doesn't exist. Using default configuration", slog.String("cfgfile", cfgFile))
 		return cfg, nil
 	}
 
@@ -55,6 +56,7 @@ func NewConfig(cfgFile string) (*Config, error) {
 	}
 
 	log.Printf("Contents: %q", contents)
+	slog.Info("Contents", slog.String("contents", string(contents)))
 	err = yaml.Unmarshal(contents, &cfg)
 	if err != nil {
 		return cfg, fmt.Errorf("failed to parse contents of config file '%s': %s", cfgFile, err)

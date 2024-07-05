@@ -3,6 +3,7 @@ package telemetrylib
 import (
 	"database/sql"
 	"log"
+	"log/slog"
 	"strings"
 
 	"github.com/SUSE/telemetry/pkg/types"
@@ -80,7 +81,11 @@ func (r *TelemetryReportRow) Exists(db *sql.DB) bool {
 	row := db.QueryRow(`SELECT id FROM reports WHERE reportId = ?`, r.ReportId)
 	if err := row.Scan(&r.Id); err != nil {
 		if err != sql.ErrNoRows {
-			log.Printf("ERR: failed when checking for existence of report id %q: %s", r.Id, err.Error())
+			slog.Error(
+				"failed when checking for existence of report",
+				slog.Int64("reportId", r.Id),
+				slog.String("err", err.Error()),
+			)
 		}
 		return false
 	}
@@ -93,12 +98,20 @@ func (r *TelemetryReportRow) Insert(db *sql.DB, bundleIDs []int64) (reportId str
 		r.ReportId, r.ReportTimestamp, r.ReportClientId, r.ReportAnnotations, r.ReportChecksum,
 	)
 	if err != nil {
-		log.Printf("failed to add Report entry with ReportId %q: %s", r.ReportId, err.Error())
+		slog.Error(
+			"failed to add Report entry",
+			slog.String("reportId", r.ReportId),
+			slog.String("err", err.Error()),
+		)
 		return reportId, err
 	}
 	id, err := res.LastInsertId()
 	if err != nil {
-		log.Printf("ERR: failed to retrieve id for inserted Report %q: %s", r.ReportId, err.Error())
+		slog.Error(
+			"failed to retrieve id for inserted Report",
+			slog.String("reportId", r.ReportId),
+			slog.String("err", err.Error()),
+		)
 		return reportId, err
 	}
 	r.Id = id

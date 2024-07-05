@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -39,7 +40,7 @@ func NewDatabaseStore(dbConfig config.DBConfig) (ds *DatabaseStore, err error) {
 				return nil, err
 			}
 			file.Close()
-			log.Println("created SQLite file", dbPath)
+			slog.Info("created SQLite file", slog.String("filePath", dbPath))
 		}
 
 		// exsure foreign_keys and journal_mode options are specified
@@ -66,14 +67,13 @@ func NewDatabaseStore(dbConfig config.DBConfig) (ds *DatabaseStore, err error) {
 		ds.Connect()
 
 	default:
-		err = fmt.Errorf("unsupported database type %q", dbConfig.Driver)
-		log.Print(err.Error())
+		slog.Error("unsupported database type", slog.String("dbDriver", dbConfig.Driver))
 		return nil, err
 	}
 
 	err = ds.EnsureTablesExist()
 	if err != nil {
-		log.Print(err.Error())
+		slog.Error("databaseStora error", slog.String("err", err.Error()))
 		return nil, err
 	}
 	return ds, nil
@@ -90,7 +90,12 @@ func (d *DatabaseStore) Setup(dbcfg config.DBConfig) {
 func (d *DatabaseStore) Connect() (err error) {
 	d.Conn, err = sql.Open(d.Driver, d.DataSource)
 	if err != nil {
-		log.Printf("Failed to connect to DB '%s:%s': %s", d.Driver, d.DataSource, err.Error())
+		slog.Error(
+			"failed to connect to DB",
+			slog.String("db", d.Driver),
+			slog.String("dataSource", d.DataSource),
+			slog.String("err", err.Error()),
+		)
 	}
 
 	return
@@ -101,7 +106,11 @@ func (d *DatabaseStore) EnsureTablesExist() (err error) {
 		createCmd := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s %s", name, columns)
 		_, err = d.Conn.Exec(createCmd)
 		if err != nil {
-			log.Printf("failed to create table %q: %s", name, err.Error())
+			slog.Error(
+				"failed to create table",
+				slog.String("table", name),
+				slog.String("err", err.Error()),
+			)
 			return
 		}
 	}
@@ -414,7 +423,11 @@ func (d *DatabaseStore) dropTables() (err error) {
 
 		_, err = d.Conn.Exec(dropCmd)
 		if err != nil {
-			log.Printf("failed to drop table %q: %s", name, err.Error())
+			slog.Error(
+				"failed to drop table",
+				slog.String("table", name),
+				slog.String("err", err.Error()),
+			)
 			return
 		}
 	}
