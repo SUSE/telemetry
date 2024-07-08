@@ -98,7 +98,7 @@ func (p *TelemetryProcessorImpl) DeleteReport(reportRow *TelemetryReportRow) (er
 var _ TelemetryProcessor = (*TelemetryProcessorImpl)(nil)
 
 func NewTelemetryProcessor(cfg *config.DBConfig) (TelemetryProcessor, error) {
-	slog.Info("NewTelemetryProcessro", slog.Any("cfg", cfg))
+	slog.Info("NewTelemetryProcessor", slog.Any("cfg", cfg))
 	p := TelemetryProcessorImpl{cfg: cfg}
 
 	err := p.setup(cfg)
