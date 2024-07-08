@@ -16,14 +16,17 @@ import (
 	telemetrylib "github.com/SUSE/telemetry/pkg/lib"
 	"github.com/SUSE/telemetry/pkg/restapi"
 	"github.com/SUSE/telemetry/pkg/types"
+	"github.com/SUSE/telemetry/pkg/utils"
 )
 
 const (
 	//CONFIG_DIR  = "/etc/susetelemetry"
-	CONFIG_DIR      = "/tmp/susetelemetry"
-	CONFIG_PATH     = CONFIG_DIR + "/config.yaml"
-	AUTH_PATH       = CONFIG_DIR + "/auth.json"
-	INSTANCEID_PATH = CONFIG_DIR + "/instanceid"
+	CONFIG_DIR              = "/tmp/susetelemetry"
+	CONFIG_PATH             = CONFIG_DIR + "/config.yaml"
+	AUTH_PATH               = CONFIG_DIR + "/auth.json"
+	INSTANCEID_PATH         = CONFIG_DIR + "/instanceid"
+	TELEMETRY_DATA_MAX_SIZE = 10485760
+	TELEMETRY_DATA_MIN_SIZE = 10
 )
 
 type TelemetryAuth struct {
@@ -301,9 +304,20 @@ func (tc *TelemetryClient) Register() (err error) {
 }
 
 func (tc *TelemetryClient) Generate(telemetry types.TelemetryType, content []byte, tags types.Tags) error {
+	log.Printf("Generated Telemetry:\nName: %q\nTags: %v\nContent: %s\nSize: %v\n",
+		telemetry, tags, content, utils.HumanReadableSize(content))
+
+	// Enforce size limits
+	tl := &telemetrylib.TelemetryDataLimits{}
+	tl.SetTelemetryDataLimits(TELEMETRY_DATA_MAX_SIZE, TELEMETRY_DATA_MIN_SIZE)
+	log.Println("Checking size limits for Telemetry Data")
+	err := tl.CheckLimits(content)
+	if err != nil {
+		return err
+	}
+	log.Println("Checks passed")
+
 	// Add telemetry data item to DataItem data store
-	log.Printf("Generated Telemetry: Name: %q, Tags: %v, Content: %s\n",
-		telemetry, tags, content)
 	tc.processor.AddData(telemetry, content, tags)
 
 	return nil

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"fmt"
 	"io"
 
 	"github.com/xyproto/randomstring"
@@ -69,4 +70,18 @@ func DecompressGZIP(compressedData []byte) (decompressedData []byte, err error) 
 	}
 
 	return decompressedData, nil
+}
+
+func HumanReadableSize(data []byte) string {
+	const unit = 1024
+	size := len(data)
+	if size < unit {
+		return fmt.Sprintf("%d B", size)
+	}
+	div, exp := int64(unit), 0
+	for n := size / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
 }
