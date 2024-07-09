@@ -83,5 +83,5 @@ func HumanReadableSize(data []byte) string {
 		div *= unit
 		exp++
 	}
-	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
+	return fmt.Sprintf("%.3f %ciB", float64(size)/float64(div), "KMGTPE"[exp])
 }
