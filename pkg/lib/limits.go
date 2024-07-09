@@ -1,10 +1,43 @@
 package telemetrylib
 
-import "errors"
+import (
+	"errors"
+	"log"
+)
+
+const (
+	// 5MB
+	TELEMETRY_DATA_MAX_SIZE = 5242880
+	TELEMETRY_DATA_MIN_SIZE = 10
+)
 
 type TelemetryDataLimits struct {
 	MaxSize uint64
 	MinSize uint64
+}
+
+// func NewTelemetryDataLimits(data []byte) *TelemetryDataLimits {
+func NewTelemetryDataLimits(data []byte) (*TelemetryDataLimits, error) {
+	tdl := new(TelemetryDataLimits)
+
+	err := tdl.Init(TELEMETRY_DATA_MIN_SIZE, TELEMETRY_DATA_MAX_SIZE, tdl, data)
+	if err != nil {
+		return tdl, err
+	}
+
+	return tdl, nil
+}
+
+// Init initiates a new TelemetryDataLimits instance with preset limits
+func (t *TelemetryDataLimits) Init(min uint64, max uint64, tdl *TelemetryDataLimits, data []byte) error {
+	tdl.SetTelemetryDataLimits(min, max)
+	log.Println("Checking size limits for Telemetry Data")
+	err := tdl.CheckLimits(data)
+	if err != nil {
+		return err
+	}
+	log.Println("Checks passed")
+	return nil
 }
 
 // SetTelemetryDataLimits sets the limits for the telemetry data.

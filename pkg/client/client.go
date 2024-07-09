@@ -21,12 +21,10 @@ import (
 
 const (
 	//CONFIG_DIR  = "/etc/susetelemetry"
-	CONFIG_DIR              = "/tmp/susetelemetry"
-	CONFIG_PATH             = CONFIG_DIR + "/config.yaml"
-	AUTH_PATH               = CONFIG_DIR + "/auth.json"
-	INSTANCEID_PATH         = CONFIG_DIR + "/instanceid"
-	TELEMETRY_DATA_MAX_SIZE = 10485760
-	TELEMETRY_DATA_MIN_SIZE = 10
+	CONFIG_DIR      = "/tmp/susetelemetry"
+	CONFIG_PATH     = CONFIG_DIR + "/config.yaml"
+	AUTH_PATH       = CONFIG_DIR + "/auth.json"
+	INSTANCEID_PATH = CONFIG_DIR + "/instanceid"
 )
 
 type TelemetryAuth struct {
@@ -308,14 +306,10 @@ func (tc *TelemetryClient) Generate(telemetry types.TelemetryType, content []byt
 		telemetry, tags, content, utils.HumanReadableSize(content))
 
 	// Enforce size limits
-	tl := &telemetrylib.TelemetryDataLimits{}
-	tl.SetTelemetryDataLimits(TELEMETRY_DATA_MAX_SIZE, TELEMETRY_DATA_MIN_SIZE)
-	log.Println("Checking size limits for Telemetry Data")
-	err := tl.CheckLimits(content)
+	_, err := telemetrylib.NewTelemetryDataLimits(content)
 	if err != nil {
 		return err
 	}
-	log.Println("Checks passed")
 
 	// Add telemetry data item to DataItem data store
 	tc.processor.AddData(telemetry, content, tags)
