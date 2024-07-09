@@ -302,9 +302,6 @@ func (tc *TelemetryClient) Register() (err error) {
 }
 
 func (tc *TelemetryClient) Generate(telemetry types.TelemetryType, content []byte, tags types.Tags) error {
-	log.Printf("Generated Telemetry:\nName: %q\nTags: %v\nContent: %s\nSize: %v\n",
-		telemetry, tags, content, utils.HumanReadableSize(content))
-
 	// Enforce size limits
 	_, err := telemetrylib.NewTelemetryDataLimits(content)
 	if err != nil {
@@ -312,6 +309,8 @@ func (tc *TelemetryClient) Generate(telemetry types.TelemetryType, content []byt
 	}
 
 	// Add telemetry data item to DataItem data store
+	log.Printf("Generated Telemetry:\nName: %q\nTags: %v\nContent: %s\nSize: %v\n",
+		telemetry, tags, content, utils.HumanReadableSize(content))
 	tc.processor.AddData(telemetry, content, tags)
 
 	return nil
