@@ -76,25 +76,29 @@ func DecompressGZIP(compressedData []byte) (decompressedData []byte, err error) 
 // TODO: check if it's worth trying to compress the data prior to compressing it (e.g: using entropy algorithms)
 // This would save some CPU usage client side
 // TODO: have telemetry data type be passed in as a parameter to further check if we should compress data and which algorithm to use (e.g: deflate or gzip)
-func ShouldCompress(data []byte) (resultData []byte, compression *string, err error) {
+func CompressWhenNeeded(data []byte) (resultData []byte, compression *string, err error) {
 	// 'compression' is inserted as a sql.NullString, hence it is returned as a nullable string
-	var nilStr *string = nil
 	var validStr string = "gzip"
+
+	// check whether it's worth compressing
+	if len(data) <= 80 {
+		return data, nil, nil
+	}
 
 	compressedData, err := CompressGZIP(data)
 	if err != nil {
-		log.Fatal(err)
+		return data, nil, err
 	}
 
 	if len(data) <= len(compressedData) {
-		return data, nilStr, nil
+		return data, nil, nil
 	}
 
 	return compressedData, &validStr, nil
 }
 
 // TODO: have telemetry data type be passed in as a parameter to further check if we should decompress data and which algorithm to use (e.g: deflate or gzip)
-func ShouldDecompress(data []byte, compression sql.NullString) (resultData []byte, err error) {
+func DecompressWhenNeeded(data []byte, compression sql.NullString) (resultData []byte, err error) {
 	if compression.Valid {
 		resultData, err = DecompressGZIP(data)
 		if err != nil {

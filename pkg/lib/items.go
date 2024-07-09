@@ -115,7 +115,7 @@ func (t *TelemetryDataItemRow) Exists(db *sql.DB) bool {
 }
 
 func (t *TelemetryDataItemRow) Insert(db *sql.DB) (err error) {
-	itemData, compression, err := utils.ShouldCompress(t.ItemData)
+	itemData, compression, err := utils.CompressWhenNeeded(t.ItemData)
 	if err != nil {
 		return
 	}

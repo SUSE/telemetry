@@ -189,7 +189,7 @@ func (d *DatabaseStore) GetItems(bundleIds ...any) (itemRowIds []int64, itemRows
 		}
 
 		// ItemData can be stored as compressed data
-		itemRow.ItemData, err = utils.ShouldDecompress(itemRow.ItemData, itemRow.Compression)
+		itemRow.ItemData, err = utils.DecompressWhenNeeded(itemRow.ItemData, itemRow.Compression)
 
 		itemRows = append(itemRows, &itemRow)
 		itemRowIds = append(itemRowIds, itemRow.Id)
@@ -359,7 +359,7 @@ func (d *DatabaseStore) GetDataItemRowsInABundle(bundleId string) (itemRows []*T
 		}
 
 		// ItemData can be stored as compressed data
-		dataitemRow.ItemData, err = utils.ShouldDecompress(dataitemRow.ItemData, dataitemRow.Compression)
+		dataitemRow.ItemData, err = utils.DecompressWhenNeeded(dataitemRow.ItemData, dataitemRow.Compression)
 
 		itemRows = append(itemRows, &dataitemRow)
 

@@ -15,13 +15,13 @@ func TestCompressDecompressGZIP(t *testing.T) {
 	// Compress data
 	compressedData, err := CompressGZIP(mockData)
 	if err != nil {
-		t.Fatalf("Error compressing data: %v", err)
+		t.Errorf("Error compressing data: %v", err)
 	}
 
 	// Decompress data to verify
 	decompressedData, err := DecompressGZIP(compressedData)
 	if err != nil {
-		t.Fatalf("Error decompressing data: %v", err)
+		t.Errorf("Error decompressing data: %v", err)
 	}
 
 	if !bytes.Equal(mockData, decompressedData) {
@@ -29,8 +29,8 @@ func TestCompressDecompressGZIP(t *testing.T) {
 	}
 }
 
-// TestShouldCompress tests ShouldCompress function
-func TestShouldCompress(t *testing.T) {
+// TestCompressWhenNeeded tests CompressWhenNeeded function
+func TestCompressWhenNeeded(t *testing.T) {
 	tests := []struct {
 		name           string
 		data           []byte
@@ -54,7 +54,7 @@ func TestShouldCompress(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			compressedData, compression, err := ShouldCompress(tt.data)
+			compressedData, compression, err := CompressWhenNeeded(tt.data)
 			if err != nil {
 				t.Fatalf("Error determining whether or not to compress data: %v", err)
 			}
@@ -70,8 +70,8 @@ func TestShouldCompress(t *testing.T) {
 	}
 }
 
-// TestShouldDecompress tests ShouldDecompress function
-func TestShouldDecompress(t *testing.T) {
+// TestDecompressWhenNeeded tests DecompressWhenNeeded function
+func TestDecompressWhenNeeded(t *testing.T) {
 	compressedData, _ := CompressGZIP([]byte("test data"))
 	tests := []struct {
 		name         string
@@ -98,7 +98,7 @@ func TestShouldDecompress(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resultData, err := ShouldDecompress(tt.data, tt.compression)
+			resultData, err := DecompressWhenNeeded(tt.data, tt.compression)
 			if (err != nil) != tt.expectErr {
 				t.Errorf("expected error: %v, got: %v", tt.expectErr, err)
 			}
