@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"log/slog"
@@ -37,6 +38,17 @@ var DefaultCfg = Config{
 type DBConfig struct {
 	Driver string `yaml:"driver"`
 	Params string `yaml:"params"`
+}
+
+type LogConfig struct {
+	Level    string `yaml:"level" json:"level"`
+	Location string `yaml:"location" json:"location"`
+	Style    string `yaml:"style" json:"style"`
+}
+
+func (lc *LogConfig) String() string {
+	str, _ := json.Marshal(lc)
+	return string(str)
 }
 
 func NewConfig(cfgFile string) (*Config, error) {
