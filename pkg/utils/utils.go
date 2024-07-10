@@ -5,8 +5,8 @@ import (
 	"compress/gzip"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"io"
-	"log"
 
 	"github.com/xyproto/randomstring"
 )
@@ -105,9 +105,23 @@ func DecompressWhenNeeded(data []byte, compression sql.NullString) (resultData [
 	if compression.Valid {
 		resultData, err = DecompressGZIP(data)
 		if err != nil {
-			log.Fatal(err)
+			return data, err
 		}
 		return resultData, nil
 	}
 	return data, nil
+}
+
+func HumanReadableSize(data []byte) string {
+	const unit = 1024
+	size := len(data)
+	if size < unit {
+		return fmt.Sprintf("%d B", size)
+	}
+	div, exp := int64(unit), 0
+	for n := size / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.3f %ciB", float64(size)/float64(div), "KMGTPE"[exp])
 }

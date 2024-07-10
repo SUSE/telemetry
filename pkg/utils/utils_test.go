@@ -109,3 +109,24 @@ func TestDecompressWhenNeeded(t *testing.T) {
 		})
 	}
 }
+
+// TestHumanReadableSize tests HumanReadableSize function
+func TestHumanReadableSize(t *testing.T) {
+	tests := []struct {
+		mockData []byte
+		expected string
+	}{
+		{make([]byte, 500), "500 B"},
+		{make([]byte, 1024), "1.000 KiB"},
+		{make([]byte, 1536), "1.500 KiB"},
+		{make([]byte, 1048576), "1.000 MiB"},
+		{make([]byte, 1073741824), "1.000 GiB"},
+	}
+
+	for _, test := range tests {
+		result := HumanReadableSize(test.mockData)
+		if result != test.expected {
+			t.Errorf("Error generating human readable size. Generated: %s; Expected %s", result, test.expected)
+		}
+	}
+}

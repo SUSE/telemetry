@@ -365,6 +365,13 @@ func (tc *TelemetryClient) Register() (err error) {
 }
 
 func (tc *TelemetryClient) Generate(telemetry types.TelemetryType, content []byte, tags types.Tags) error {
+	// Enforce size limits
+	tdl := telemetrylib.NewTelemetryDataLimits()
+	err := tdl.CheckLimits(content)
+	if err != nil {
+		return err
+	}
+
 	// Add telemetry data item to DataItem data store
 	slog.Info(
 		"Generated Telemetry",
