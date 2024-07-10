@@ -3,6 +3,7 @@ package telemetrylib
 import (
 	"database/sql"
 	"log"
+	"log/slog"
 	"strings"
 
 	"github.com/SUSE/telemetry/pkg/types"
@@ -94,7 +95,11 @@ func (b *TelemetryBundleRow) Exists(db *sql.DB) bool {
 	row := db.QueryRow(`SELECT id FROM bundles WHERE bundleId = ?`, b.BundleId)
 	if err := row.Scan(&b.Id); err != nil {
 		if err != sql.ErrNoRows {
-			log.Printf("ERR: failed when checking for existence of bundle id %q: %s", b.Id, err.Error())
+			slog.Error(
+				"failed to check bundle id existence",
+				slog.Int64("bundleId", b.Id),
+				slog.String("err", err.Error()),
+			)
 		}
 		return false
 	}
@@ -107,12 +112,20 @@ func (b *TelemetryBundleRow) Insert(db *sql.DB, itemIDs []int64) (bundleId strin
 		b.BundleId, b.BundleTimestamp, b.BundleClientId, b.BundleCustomerId, b.BundleAnnotations, b.BundleChecksum,
 	)
 	if err != nil {
-		log.Printf("failed to add bundle entry with bundleId %q: %s", b.BundleId, err.Error())
+		slog.Error(
+			"failed to add bundle entry with bundleId",
+			slog.String("bundleId", b.BundleId),
+			slog.String("err", err.Error()),
+		)
 		return bundleId, err
 	}
 	id, err := res.LastInsertId()
 	if err != nil {
-		log.Printf("ERR: failed to retrieve id for inserted Bundle %q: %s", b.BundleId, err.Error())
+		slog.Error(
+			"failed to retrieve id for inserted Bundle",
+			slog.String("bundleId", b.BundleId),
+			slog.String("err", err.Error()),
+		)
 		return bundleId, err
 	}
 	b.Id = id

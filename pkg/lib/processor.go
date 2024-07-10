@@ -2,7 +2,7 @@ package telemetrylib
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 
 	"github.com/SUSE/telemetry/pkg/config"
@@ -98,7 +98,7 @@ func (p *TelemetryProcessorImpl) DeleteReport(reportRow *TelemetryReportRow) (er
 var _ TelemetryProcessor = (*TelemetryProcessorImpl)(nil)
 
 func NewTelemetryProcessor(cfg *config.DBConfig) (TelemetryProcessor, error) {
-	log.Printf("NewTelemetryProcessor(%+v)", cfg)
+	slog.Info("NewTelemetryProcessor", slog.Any("cfg", cfg))
 	p := TelemetryProcessorImpl{cfg: cfg}
 
 	err := p.setup(cfg)

@@ -12,16 +12,16 @@ func TestCompressDecompressGZIP(t *testing.T) {
 	// Compress the data
 	compressedData, err := CompressGZIP(mockData)
 	if err != nil {
-		t.Fatalf("Error compressing data: %v", err)
+		t.Errorf("Error compressing data: %v", err)
 	}
 
 	// Decompress the data to verify
 	decompressedData, err := DecompressGZIP(compressedData)
 	if err != nil {
-		t.Fatalf("Error decompressing data: %v", err)
+		t.Errorf("Error decompressing data: %v", err)
 	}
 
 	if !bytes.Equal(mockData, decompressedData) {
-		t.Fatalf("Decompressed data does not match original data:\n Expected: %v, Got: %v", mockData, decompressedData)
+		t.Errorf("Decompressed data does not match original data:\n Expected: %v, Got: %v", mockData, decompressedData)
 	}
 }

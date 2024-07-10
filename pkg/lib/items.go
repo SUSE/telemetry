@@ -3,7 +3,7 @@ package telemetrylib
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 
 	"github.com/SUSE/telemetry/pkg/types"
@@ -105,7 +105,12 @@ func (t *TelemetryDataItemRow) Exists(db *sql.DB) bool {
 	row := db.QueryRow(`SELECT id FROM items WHERE telemetryId = ? AND telemetryType = ?`, t.ItemId, t.ItemType)
 	if err := row.Scan(&t.Id); err != nil {
 		if err != sql.ErrNoRows {
-			log.Printf("ERR: failed when checking for existence of telemetry data id %q, type %q: %s", t.Id, t.ItemType, err.Error())
+			slog.Error(
+				"failed when checking for existence of telemetry data",
+				slog.Int64("id", t.Id),
+				slog.String("type", t.ItemType),
+				slog.String("err", err.Error()),
+			)
 		}
 		return false
 	}
@@ -122,12 +127,20 @@ func (t *TelemetryDataItemRow) Insert(db *sql.DB) (err error) {
 		t.ItemId, t.ItemType, t.ItemTimestamp, t.ItemAnnotations, compressedItemData, t.ItemChecksum,
 	)
 	if err != nil {
-		log.Printf("failed to add telemetryData entry with telemetryId %q: %s", t.ItemId, err.Error())
+		slog.Error(
+			"failed to add telemetryData entry with telemetryId",
+			slog.Int64("id", t.Id),
+			slog.String("err", err.Error()),
+		)
 		return
 	}
 	id, err := res.LastInsertId()
 	if err != nil {
-		log.Printf("ERR: failed to retrieve id for inserted telemetryData %q: %s", t.ItemId, err.Error())
+		slog.Error(
+			"failed to retrieve id for inserted telemetryData",
+			slog.Int64("id", t.Id),
+			slog.String("err", err.Error()),
+		)
 		return
 	}
 	t.Id = id
