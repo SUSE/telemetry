@@ -73,6 +73,8 @@ func DecompressGZIP(compressedData []byte) (decompressedData []byte, err error) 
 	return decompressedData, nil
 }
 
+// TODO: Both CompressWhenNeeded and DecompressWhenNeeded should be methods in TelemetryData
+
 // TODO: check if it's worth trying to compress the data prior to compressing it (e.g: using entropy algorithms)
 // This would save some CPU usage client side
 // TODO: have telemetry data type be passed in as a parameter to further check if we should compress data and which algorithm to use (e.g: deflate or gzip)
@@ -81,7 +83,8 @@ func CompressWhenNeeded(data []byte) (resultData []byte, compression *string, er
 	var validStr string = "gzip"
 
 	// check whether it's worth compressing
-	if len(data) <= 80 {
+	const MIN_SIZE_DATA_COMPRESSION = 80
+	if len(data) <= MIN_SIZE_DATA_COMPRESSION {
 		return data, nil, nil
 	}
 
