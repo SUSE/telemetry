@@ -1,4 +1,3 @@
-
 telemetry_base_url: "http://localhost:9999/telemetry"
 enabled: true
 customer_id: 1234567890
@@ -9,8 +8,12 @@ datastores:
 extras:
   some: thing
   else:
-  - one
-  - two
-  - three
+    - one
+    - two
+    - three
   or:
     maybe: 2024
+logging:
+  level: info
+  location: stderr
+  style: text

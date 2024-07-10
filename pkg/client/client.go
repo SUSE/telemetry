@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -61,7 +61,7 @@ func NewTelemetryClient(cfg *config.Config) (tc *TelemetryClient, err error) {
 
 func ensureInstanceIdExists(instIdPath string) error {
 
-	log.Printf("ensuring existence of instIdPath %q", instIdPath)
+	slog.Info("ensuring existence of instIdPath", slog.String("instIdPath", instIdPath))
 	_, err := os.Stat(instIdPath)
 	if !os.IsNotExist(err) {
 		return nil
@@ -74,7 +74,12 @@ func ensureInstanceIdExists(instIdPath string) error {
 
 	err = os.WriteFile(instIdPath, instId, 0600)
 	if err != nil {
-		log.Printf("failed to write instId %q to instIdPath %q: %s", instId, instIdPath, err.Error())
+		slog.Error(
+			"failed to write instId to instIdPath",
+			slog.String("instId", string(instId)),
+			slog.String("instIdPath", instIdPath),
+			slog.String("err", err.Error()),
+		)
 	}
 
 	return nil
@@ -105,9 +110,13 @@ func (tc *TelemetryClient) getInstanceId() (instId []byte, err error) {
 
 	instId, err = os.ReadFile(instIdPath)
 	if err != nil {
-		log.Printf("failed to read %q: %s", instIdPath, err.Error())
+		slog.Error(
+			"failed to read instId file",
+			slog.String("instIdPath", instIdPath),
+			slog.String("err", err.Error()),
+		)
 	} else {
-		log.Printf("instId: %q", instId)
+		slog.Info("successfully read instId file", slog.String("instId", string(instId)))
 	}
 
 	return
@@ -116,34 +125,57 @@ func (tc *TelemetryClient) getInstanceId() (instId []byte, err error) {
 func (tc *TelemetryClient) loadTelemetryAuth() (err error) {
 	authPath := tc.AuthPath()
 
-	log.Printf("checking for existence of authPath %q", authPath)
+	slog.Info("Checking auth file existence", slog.String("authPath", authPath))
 	_, err = os.Stat(authPath)
 	if os.IsNotExist(err) {
-		log.Printf("unable to find authPath %q: %s", authPath, err.Error())
+		slog.Error(
+			"unable to find auth file",
+			slog.String("authPath", authPath),
+			slog.String("err", err.Error()),
+		)
 		return
 	}
 
 	authContent, err := os.ReadFile(authPath)
 	if err != nil {
-		log.Printf("failed to read contents of authPath %q: %s", authPath, err.Error())
+		slog.Error(
+			"failed to read contents of auth file",
+			slog.String("authPath", authPath),
+			slog.String("err", err.Error()),
+		)
 		return
 	}
 
 	err = json.Unmarshal(authContent, &tc.auth)
 	if err != nil {
-		log.Printf("failed to JSON unmarshal authPath %q content %q: %s", authPath, authContent, err.Error())
+		slog.Error(
+			"failed to JSON unmarshal auth file contents",
+			slog.String("authPath", authPath),
+			slog.String("authContent", string(authContent)),
+			slog.String("err", err.Error()),
+		)
 		return
 	}
 
 	if tc.auth.ClientId == 0 {
-		err = fmt.Errorf("invalid authPath %q content %q: invalid client id", authPath, authContent)
-		log.Print(err.Error())
+		err = fmt.Errorf("invalid client id")
+		slog.Error(
+			"invalid auth",
+			slog.String("authPath", authPath),
+			slog.String("authContent", string(authContent)),
+			slog.String("err", err.Error()),
+		)
 		return
 	}
 
 	if tc.auth.Token == "" {
-		err = fmt.Errorf("invalid authPath %q content %q: empty token value", authPath, authContent)
-		log.Print(err.Error())
+		err = fmt.Errorf("empty token value")
+		slog.Error(
+			"invalid auth",
+			slog.String("authPath", authPath),
+			slog.String("authContent", string(authContent)),
+			slog.String("err", err.Error()),
+		)
 		return
 	}
 
@@ -157,13 +189,17 @@ func (tc *TelemetryClient) saveTelemetryAuth() (err error) {
 
 	taJSON, err := json.Marshal(&tc.auth)
 	if err != nil {
-		log.Printf("failed to JSON marshal TelemetryAuth: %s", err.Error())
+		slog.Error("failed to JSON marshal TelemetryAuth", slog.String("err", err.Error()))
 		return
 	}
 
 	err = os.WriteFile(authPath, taJSON, 0600)
 	if err != nil {
-		log.Printf("failed to write JSON marshalled TelemetryAuth to %q: %s", authPath, err.Error())
+		slog.Error(
+			"failed to write JSON marshalled TelemetryAuth",
+			slog.String("authPath", authPath),
+			slog.String("err", err.Error()),
+		)
 	}
 
 	return
@@ -175,7 +211,7 @@ func (tc *TelemetryClient) submitReport(report *telemetrylib.TelemetryReport) (e
 	trReq.TelemetryReport = *report
 	reqBodyJSON, err := json.Marshal(&trReq)
 	if err != nil {
-		log.Printf("failed to JSON marshal trReq: %s", err.Error())
+		slog.Error("failed to JSON marshal trReq", slog.String("err", err.Error()))
 		return
 	}
 
@@ -183,7 +219,7 @@ func (tc *TelemetryClient) submitReport(report *telemetrylib.TelemetryReport) (e
 	reqBuf := bytes.NewBuffer(reqBodyJSON)
 	req, err := http.NewRequest("POST", reqUrl, reqBuf)
 	if err != nil {
-		log.Printf("failed to create new HTTP request for telemetry report: %s", err.Error())
+		slog.Error("failed to create new HTTP request for telemetry report", slog.String("err", err.Error()))
 		return
 	}
 
@@ -193,31 +229,34 @@ func (tc *TelemetryClient) submitReport(report *telemetrylib.TelemetryReport) (e
 	httpClient := http.DefaultClient
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		log.Printf("failed to HTTP POST telemetry report request: %s", err.Error())
+		slog.Error("failed HTTP POST telemetry report request", slog.String("err", err.Error()))
 		return
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Printf("failed to read telemetry report response body: %s", err.Error())
+		slog.Error("failed to read telemetry report response body", slog.String("err", err.Error()))
 		return
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		err = fmt.Errorf("telemetry report failed: %s", string(respBody))
+		slog.Error("failed to submit report", slog.String("respBody", string(respBody)))
 		return
 	}
 
 	var trResp restapi.TelemetryReportResponse
 	err = json.Unmarshal(respBody, &trResp)
 	if err != nil {
-		log.Printf("failed to JSON unmarshal telemetry report response body content: %s", err.Error())
+		slog.Error("failed to JSON unmarshal telemetry report response body content", slog.String("err", err.Error()))
 		return
 	}
 
-	log.Printf("Successfully submitted report %q: processing %q", report.Header.ReportId, trResp.ProcessingInfo())
-
+	slog.Info(
+		"successfully submitted report",
+		slog.String("report", report.Header.ReportId),
+		slog.String("processing", trResp.ProcessingInfo()),
+	)
 	return
 }
 
@@ -225,7 +264,7 @@ func (tc *TelemetryClient) Register() (err error) {
 	// get the saved TelemetryAuth, returning success if found
 	err = tc.loadTelemetryAuth()
 	if err == nil {
-		log.Printf("telemtry auth found, client already registered as id %d, skipping", tc.auth.ClientId)
+		slog.Info("telemetry auth found, client already registered, skipping", slog.Int64("clientId", tc.auth.ClientId))
 		return
 	}
 
@@ -240,7 +279,10 @@ func (tc *TelemetryClient) Register() (err error) {
 	crReq.ClientInstanceId = string(instId)
 	reqBodyJSON, err := json.Marshal(&crReq)
 	if err != nil {
-		log.Printf("failed to JSON marshal crReq: %s", err.Error())
+		slog.Error(
+			"failed to JSON marshal crReq",
+			slog.String("err", err.Error()),
+		)
 		return
 	}
 
@@ -248,7 +290,10 @@ func (tc *TelemetryClient) Register() (err error) {
 	reqBuf := bytes.NewBuffer(reqBodyJSON)
 	req, err := http.NewRequest("POST", reqUrl, reqBuf)
 	if err != nil {
-		log.Printf("failed to create new HTTP request for client registration: %s", err.Error())
+		slog.Error(
+			"failed to create new HTTP request for client registration",
+			slog.String("err", err.Error()),
+		)
 		return
 	}
 
@@ -257,14 +302,20 @@ func (tc *TelemetryClient) Register() (err error) {
 	httpClient := http.DefaultClient
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		log.Printf("failed to HTTP POST client registration request: %s", err.Error())
+		slog.Error(
+			"failed to HTTP POST client registration request",
+			slog.String("err", err.Error()),
+		)
 		return
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Printf("failed to read client registration response body: %s", err.Error())
+		slog.Error(
+			"failed to read client registration response body",
+			slog.String("err", err.Error()),
+		)
 		return
 	}
 
@@ -277,7 +328,10 @@ func (tc *TelemetryClient) Register() (err error) {
 	var crResp restapi.ClientRegistrationResponse
 	err = json.Unmarshal(respBody, &crResp)
 	if err != nil {
-		log.Printf("failed to JSON unmarshal client registration response body content: %s", err.Error())
+		slog.Error(
+			"failed to JSON unmarshal client registration response body content",
+			slog.String("err", err.Error()),
+		)
 		return
 	}
 
@@ -285,33 +339,46 @@ func (tc *TelemetryClient) Register() (err error) {
 	tc.auth.Token = types.TelemetryAuthToken(crResp.AuthToken)
 	tc.auth.IssueDate, err = types.TimeStampFromString(crResp.IssueDate)
 	if err != nil {
-		log.Printf("failed to parse %q as a timestamp: %s", crResp.IssueDate, err.Error())
+		slog.Error(
+			"failed to parse issueDate as a timestamp",
+			slog.String("issueDate", crResp.IssueDate),
+			slog.String("err", err.Error()),
+		)
 		return
 	}
 
 	err = tc.saveTelemetryAuth()
 	if err != nil {
-		log.Printf("failed to save TelemetryAuth: %s", err.Error())
+		slog.Error(
+			"failed to save TelemetryAuth",
+			slog.String("err", err.Error()),
+		)
 		return
 	}
 
-	log.Printf("successfully registered as client with id %d", tc.auth.ClientId)
+	slog.Info(
+		"successfully registered as client",
+		slog.Int64("clientId", tc.auth.ClientId),
+	)
 
 	return nil
 }
 
 func (tc *TelemetryClient) Generate(telemetry types.TelemetryType, content []byte, tags types.Tags) error {
 	// Add telemetry data item to DataItem data store
-	log.Printf("Generated Telemetry: Name: %q, Tags: %v, Content: %s\n",
-		telemetry, tags, content)
-	tc.processor.AddData(telemetry, content, tags)
+	slog.Info(
+		"Generated Telemetry",
+		slog.String("name", telemetry.String()),
+		slog.String("tags", tags.String()),
+		slog.String("content", string(content)),
+	)
 
-	return nil
+	return tc.processor.AddData(telemetry, content, tags)
 }
 
 func (tc *TelemetryClient) CreateBundles(tags types.Tags) error {
 	// Bundle existing telemetry data items found in DataItem data store into one or more bundles in the Bundle data store
-	log.Printf("Bundle: Tags: %v", tags)
+	slog.Info("Bundle", slog.String("Tags", tags.String()))
 	tc.processor.GenerateBundle(tc.auth.ClientId, tc.cfg.CustomerID, tags)
 
 	return nil
@@ -319,7 +386,7 @@ func (tc *TelemetryClient) CreateBundles(tags types.Tags) error {
 
 func (tc *TelemetryClient) CreateReports(tags types.Tags) (err error) {
 	// Generate reports from available bundles
-	log.Printf("CreateReports: Tags: %v", tags)
+	slog.Info("CreateReports", slog.String("Tags", tags.String()))
 	tc.processor.GenerateReport(tc.auth.ClientId, tags)
 
 	return
