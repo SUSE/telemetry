@@ -3,47 +3,36 @@ package telemetrylib
 import (
 	"errors"
 	"log"
+	"log/slog"
 )
 
 const (
 	// 5MB
-	TELEMETRY_DATA_MAX_SIZE = 5242880
-	TELEMETRY_DATA_MIN_SIZE = 10
+	TELEMETRY_DATA_MIN_SIZE uint64 = 10
+	TELEMETRY_DATA_MAX_SIZE uint64 = 5242880
 )
 
 type TelemetryDataLimits struct {
-	MaxSize uint64
 	MinSize uint64
+	MaxSize uint64
 }
 
 // func NewTelemetryDataLimits(data []byte) *TelemetryDataLimits {
-func NewTelemetryDataLimits(data []byte) (*TelemetryDataLimits, error) {
+func NewTelemetryDataLimits() *TelemetryDataLimits {
 	tdl := new(TelemetryDataLimits)
-
-	err := tdl.Init(TELEMETRY_DATA_MIN_SIZE, TELEMETRY_DATA_MAX_SIZE, tdl, data)
-	if err != nil {
-		return tdl, err
-	}
-
-	return tdl, nil
+	tdl.Init(TELEMETRY_DATA_MIN_SIZE, TELEMETRY_DATA_MAX_SIZE)
+	return tdl
 }
 
 // Init initiates a new TelemetryDataLimits instance with preset limits
-func (t *TelemetryDataLimits) Init(min uint64, max uint64, tdl *TelemetryDataLimits, data []byte) error {
-	tdl.SetTelemetryDataLimits(min, max)
-	log.Println("Checking size limits for Telemetry Data")
-	err := tdl.CheckLimits(data)
-	if err != nil {
-		return err
-	}
-	log.Println("Checks passed")
-	return nil
+func (t *TelemetryDataLimits) Init(min uint64, max uint64) {
+	t.SetTelemetryDataLimits(min, max)
 }
 
 // SetTelemetryDataLimits sets the limits for the telemetry data.
-func (t *TelemetryDataLimits) SetTelemetryDataLimits(maxSize uint64, minSize uint64) {
-	t.MaxSize = maxSize
+func (t *TelemetryDataLimits) SetTelemetryDataLimits(minSize uint64, maxSize uint64) {
 	t.MinSize = minSize
+	t.MaxSize = maxSize
 }
 
 // GetTelemetryDataLimits gets the current limits for the telemetry data.
@@ -54,6 +43,13 @@ func (t *TelemetryDataLimits) GetTelemetryDataLimits() TelemetryDataLimits {
 // CheckLimits checks the telemetry data limits
 func (t *TelemetryDataLimits) CheckLimits(data []byte) error {
 	dataSize := uint64(len(data))
+	log.Println("Checking size limits for Telemetry Data")
+	slog.Info(
+		"Checking size limits for Telemetry Data",
+		slog.Uint64("Data size", dataSize),
+		slog.Uint64("Max", t.MaxSize),
+		slog.Uint64("Min", t.MinSize),
+	)
 	switch {
 	case t.MinSize > t.MaxSize:
 		return errors.New("min_size cannot be greater than max_size")
@@ -62,6 +58,7 @@ func (t *TelemetryDataLimits) CheckLimits(data []byte) error {
 	case dataSize < t.MinSize:
 		return errors.New("payload size is below the minimum limit")
 	default:
+		slog.Info("Checks passed")
 		return nil
 	}
 }

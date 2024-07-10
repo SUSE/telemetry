@@ -366,7 +366,8 @@ func (tc *TelemetryClient) Register() (err error) {
 
 func (tc *TelemetryClient) Generate(telemetry types.TelemetryType, content []byte, tags types.Tags) error {
 	// Enforce size limits
-	_, err := telemetrylib.NewTelemetryDataLimits(content)
+	tdl := telemetrylib.NewTelemetryDataLimits()
+	err := tdl.CheckLimits(content)
 	if err != nil {
 		return err
 	}
