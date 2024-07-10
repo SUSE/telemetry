@@ -3,7 +3,7 @@ package telemetrylib
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 
 	"github.com/SUSE/telemetry/pkg/types"
@@ -64,6 +64,7 @@ const itemsColumns = `(
 	itemAnnotations TEXT NULL,
 	itemData BLOB NOT NULL,
 	itemChecksum VARCHAR(256),
+	compression VARCHAR NULL,
 	bundleId INTEGER NULL,
 	CONSTRAINT items_bundleId
 	  FOREIGN KEY (bundleId)
@@ -79,6 +80,7 @@ type TelemetryDataItemRow struct {
 	ItemAnnotations string
 	ItemData        []byte
 	ItemChecksum    string
+	Compression     sql.NullString
 	BundleId        sql.NullInt64
 }
 
@@ -105,7 +107,12 @@ func (t *TelemetryDataItemRow) Exists(db *sql.DB) bool {
 	row := db.QueryRow(`SELECT id FROM items WHERE telemetryId = ? AND telemetryType = ?`, t.ItemId, t.ItemType)
 	if err := row.Scan(&t.Id); err != nil {
 		if err != sql.ErrNoRows {
-			log.Printf("ERR: failed when checking for existence of telemetry data id %q, type %q: %s", t.Id, t.ItemType, err.Error())
+			slog.Error(
+				"failed when checking for existence of telemetry data",
+				slog.Int64("id", t.Id),
+				slog.String("type", t.ItemType),
+				slog.String("err", err.Error()),
+			)
 		}
 		return false
 	}
@@ -113,21 +120,29 @@ func (t *TelemetryDataItemRow) Exists(db *sql.DB) bool {
 }
 
 func (t *TelemetryDataItemRow) Insert(db *sql.DB) (err error) {
-	compressedItemData, err := utils.CompressGZIP(t.ItemData)
+	itemData, compression, err := utils.CompressWhenNeeded(t.ItemData)
 	if err != nil {
 		return
 	}
 	res, err := db.Exec(
-		`INSERT INTO items(ItemId, ItemType, ItemTimestamp, ItemAnnotations, ItemData, ItemChecksum, BundleId) VALUES(?, ?, ?, ?, ?, ?, NULL)`,
-		t.ItemId, t.ItemType, t.ItemTimestamp, t.ItemAnnotations, compressedItemData, t.ItemChecksum,
+		`INSERT INTO items(ItemId, ItemType, ItemTimestamp, ItemAnnotations, ItemData, ItemChecksum, Compression) VALUES(?, ?, ?, ?, ?, ?, ?)`,
+		t.ItemId, t.ItemType, t.ItemTimestamp, t.ItemAnnotations, itemData, t.ItemChecksum, compression,
 	)
 	if err != nil {
-		log.Printf("failed to add telemetryData entry with telemetryId %q: %s", t.ItemId, err.Error())
+		slog.Error(
+			"failed to add telemetryData entry with telemetryId",
+			slog.Int64("id", t.Id),
+			slog.String("err", err.Error()),
+		)
 		return
 	}
 	id, err := res.LastInsertId()
 	if err != nil {
-		log.Printf("ERR: failed to retrieve id for inserted telemetryData %q: %s", t.ItemId, err.Error())
+		slog.Error(
+			"failed to retrieve id for inserted telemetryData",
+			slog.Int64("id", t.Id),
+			slog.String("err", err.Error()),
+		)
 		return
 	}
 	t.Id = id

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -39,7 +40,7 @@ func NewDatabaseStore(dbConfig config.DBConfig) (ds *DatabaseStore, err error) {
 				return nil, err
 			}
 			file.Close()
-			log.Println("created SQLite file", dbPath)
+			slog.Info("created SQLite file", slog.String("filePath", dbPath))
 		}
 
 		// exsure foreign_keys and journal_mode options are specified
@@ -66,14 +67,13 @@ func NewDatabaseStore(dbConfig config.DBConfig) (ds *DatabaseStore, err error) {
 		ds.Connect()
 
 	default:
-		err = fmt.Errorf("unsupported database type %q", dbConfig.Driver)
-		log.Print(err.Error())
+		slog.Error("unsupported database type", slog.String("dbDriver", dbConfig.Driver))
 		return nil, err
 	}
 
 	err = ds.EnsureTablesExist()
 	if err != nil {
-		log.Print(err.Error())
+		slog.Error("databaseStora error", slog.String("err", err.Error()))
 		return nil, err
 	}
 	return ds, nil
@@ -90,7 +90,12 @@ func (d *DatabaseStore) Setup(dbcfg config.DBConfig) {
 func (d *DatabaseStore) Connect() (err error) {
 	d.Conn, err = sql.Open(d.Driver, d.DataSource)
 	if err != nil {
-		log.Printf("Failed to connect to DB '%s:%s': %s", d.Driver, d.DataSource, err.Error())
+		slog.Error(
+			"failed to connect to DB",
+			slog.String("db", d.Driver),
+			slog.String("dataSource", d.DataSource),
+			slog.String("err", err.Error()),
+		)
 	}
 
 	return
@@ -101,7 +106,11 @@ func (d *DatabaseStore) EnsureTablesExist() (err error) {
 		createCmd := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s %s", name, columns)
 		_, err = d.Conn.Exec(createCmd)
 		if err != nil {
-			log.Printf("failed to create table %q: %s", name, err.Error())
+			slog.Error(
+				"failed to create table",
+				slog.String("table", name),
+				slog.String("err", err.Error()),
+			)
 			return
 		}
 	}
@@ -160,7 +169,7 @@ func (d *DatabaseStore) GetItems(bundleIds ...any) (itemRowIds []int64, itemRows
 	// generate the SQL populate query statement for the items table
 	query, queryBundleIds := genSqlPopulateQuery(
 		"items",
-		[]string{"id", "itemId", "itemType", "itemTimestamp", "itemAnnotations", "itemData", "itemChecksum", "bundleId"},
+		[]string{"id", "itemId", "itemType", "itemTimestamp", "itemAnnotations", "itemData", "itemChecksum", "compression", "bundleId"},
 		"bundleId",
 		bundleIds,
 	)
@@ -183,17 +192,14 @@ func (d *DatabaseStore) GetItems(bundleIds ...any) (itemRowIds []int64, itemRows
 			&itemRow.ItemAnnotations,
 			&itemRow.ItemData,
 			&itemRow.ItemChecksum,
+			&itemRow.Compression,
 			&itemRow.BundleId); err != nil {
 			log.Fatal(err)
 		}
 
-		// ItemData is stored as compressed data
-		decompressedItemData, err := utils.DecompressGZIP(itemRow.ItemData)
-		if err != nil {
-			log.Fatal(err)
-		}
+		// ItemData can be stored as compressed data
+		itemRow.ItemData, err = utils.DecompressWhenNeeded(itemRow.ItemData, itemRow.Compression)
 
-		itemRow.ItemData = decompressedItemData
 		itemRows = append(itemRows, &itemRow)
 		itemRowIds = append(itemRowIds, itemRow.Id)
 	}
@@ -339,7 +345,7 @@ func (d *DatabaseStore) GetReportCount(ids ...any) (int, error) {
 
 func (d *DatabaseStore) GetDataItemRowsInABundle(bundleId string) (itemRows []*TelemetryDataItemRow, err error) {
 	//perform a join between the items table and the bundle table to filter the items by the bundle ID.
-	rows, err := d.Conn.Query(`SELECT items.id, items.itemId, items.itemType, items.itemTimestamp, items.itemAnnotations, items.itemData, items.itemChecksum, items.bundleId FROM items JOIN bundles ON items.bundleId = bundles.id WHERE bundles.bundleId = ?`, bundleId)
+	rows, err := d.Conn.Query(`SELECT items.id, items.itemId, items.itemType, items.itemTimestamp, items.itemAnnotations, items.itemData, items.itemChecksum, items.compression, items.bundleId FROM items JOIN bundles ON items.bundleId = bundles.id WHERE bundles.bundleId = ?`, bundleId)
 
 	if err != nil {
 		log.Fatal(err)
@@ -356,9 +362,13 @@ func (d *DatabaseStore) GetDataItemRowsInABundle(bundleId string) (itemRows []*T
 			&dataitemRow.ItemAnnotations,
 			&dataitemRow.ItemData,
 			&dataitemRow.ItemChecksum,
+			&dataitemRow.Compression,
 			&dataitemRow.BundleId); err != nil {
 			log.Fatal(err)
 		}
+
+		// ItemData can be stored as compressed data
+		dataitemRow.ItemData, err = utils.DecompressWhenNeeded(dataitemRow.ItemData, dataitemRow.Compression)
 
 		itemRows = append(itemRows, &dataitemRow)
 
@@ -414,7 +424,11 @@ func (d *DatabaseStore) dropTables() (err error) {
 
 		_, err = d.Conn.Exec(dropCmd)
 		if err != nil {
-			log.Printf("failed to drop table %q: %s", name, err.Error())
+			slog.Error(
+				"failed to drop table",
+				slog.String("table", name),
+				slog.String("err", err.Error()),
+			)
 			return
 		}
 	}
