@@ -62,6 +62,7 @@ func TestCompressWhenNeeded(t *testing.T) {
 			if tt.expectCompress {
 				assert.NotNil(t, compression)
 				assert.Equal(t, "gzip", *compression)
+				assert.NotEqual(t, tt.data, compressedData)
 			} else {
 				assert.Nil(t, compression)
 				assert.Equal(t, tt.data, compressedData)
