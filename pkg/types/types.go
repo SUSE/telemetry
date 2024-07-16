@@ -53,6 +53,10 @@ func (t TelemetryAuthToken) Valid() bool {
 	return t != ""
 }
 
+func (t *TelemetryAuthToken) String() string {
+	return string(*t)
+}
+
 // TelemetryType is a string of the format "<family>-<stream>-<subtype>"
 type TelemetryType string
 
