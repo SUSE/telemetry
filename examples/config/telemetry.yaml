@@ -5,15 +5,12 @@ tags: []
 datastores:
   driver: sqlite3
   params: /tmp/telemetry/client/telemetry.db
-extras:
-  some: thing
-  else:
-    - one
-    - two
-    - three
-  or:
-    maybe: 2024
 logging:
   level: info
   location: stderr
   style: text
+class_options:
+  opt_out: true
+  opt_in: false
+  allow: []
+  deny: []

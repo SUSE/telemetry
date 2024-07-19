@@ -103,3 +103,23 @@ func Now() TelemetryTimeStamp {
 	t := TelemetryTimeStamp{time.Now()}
 	return t
 }
+
+type TelemetryClass int64
+
+const (
+	MANDATORY_TELEMETRY TelemetryClass = iota
+	OPT_OUT_TELEMETRY
+	OPT_IN_TELEMETRY
+)
+
+func (tc *TelemetryClass) String() string {
+	switch *tc {
+	case MANDATORY_TELEMETRY:
+		return "MANDATORY"
+	case OPT_OUT_TELEMETRY:
+		return "OPT-OUT"
+	case OPT_IN_TELEMETRY:
+		return "OPT-IN"
+	}
+	return "UNKNOWN_TELEMETRY_CLASS"
+}

@@ -6,23 +6,41 @@ import (
 	"log"
 	"log/slog"
 	"os"
+	"slices"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/SUSE/telemetry/pkg/types"
 )
 
 type Config struct {
-	TelemetryBaseURL string   `yaml:"telemetry_base_url"`
-	Enabled          bool     `yaml:"enabled"`
-	CustomerID       string   `yaml:"customer_id"`
-	Tags             []string `yaml:"tags"`
-	DataStores       DBConfig `yaml:"datastores"`
-	Extras           any      `yaml:"extras,omitempty"`
+	TelemetryBaseURL string             `yaml:"telemetry_base_url"`
+	Enabled          bool               `yaml:"enabled"`
+	CustomerID       string             `yaml:"customer_id"`
+	Tags             []string           `yaml:"tags"`
+	DataStores       DBConfig           `yaml:"datastores"`
+	ClassOptions     ClassOptionsConfig `yaml:"classOptions"`
+	Logging          LogConfig          `yaml:"logging"`
+	Extras           any                `yaml:"extras,omitempty"`
 }
 
 // Defaults
 var DefaultDBCfg = DBConfig{
 	Driver: "sqlite3",
 	Params: "/tmp/telemetry/client/telemetry.db",
+}
+
+var DefaultLogging = LogConfig{
+	Level:    "info",
+	Location: "stderr",
+	Style:    "text",
+}
+
+var DefaultClassOptions = ClassOptionsConfig{
+	OptOut: true,
+	OptIn:  false,
+	Allow:  []types.TelemetryType{},
+	Deny:   []types.TelemetryType{},
 }
 
 var DefaultCfg = Config{
@@ -32,6 +50,8 @@ var DefaultCfg = Config{
 	CustomerID:       "0",
 	Tags:             []string{},
 	DataStores:       DefaultDBCfg,
+	Logging:          DefaultLogging,
+	ClassOptions:     DefaultClassOptions,
 }
 
 // Datastore config for staging the data
@@ -49,6 +69,13 @@ type LogConfig struct {
 func (lc *LogConfig) String() string {
 	str, _ := json.Marshal(lc)
 	return string(str)
+}
+
+type ClassOptionsConfig struct {
+	OptOut bool                  `yaml:"opt_out" json:"opt_out"`
+	OptIn  bool                  `yaml:"opt_in" json:"opt_in"`
+	Allow  []types.TelemetryType `yaml:"allow" json:"allow"`
+	Deny   []types.TelemetryType `yaml:"deny" json:"deny"`
 }
 
 func NewConfig(cfgFile string) (*Config, error) {
@@ -75,4 +102,33 @@ func NewConfig(cfgFile string) (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+func (c *Config) TelemetryClassEnabled(class types.TelemetryClass) bool {
+
+	switch class {
+	case types.MANDATORY_TELEMETRY:
+		return true
+	case types.OPT_OUT_TELEMETRY:
+		return c.ClassOptions.OptOut
+	case types.OPT_IN_TELEMETRY:
+		return c.ClassOptions.OptIn
+	}
+
+	return false
+}
+
+func (c *Config) TelemetryTypeEnabled(telemetry types.TelemetryType) bool {
+	// if telemetry type is in the allow list then allow it to be sent
+	if slices.Contains(c.ClassOptions.Allow, telemetry) {
+		return true
+	}
+
+	// otherwise if telemetry type is in the deny list then deny it
+	if slices.Contains(c.ClassOptions.Deny, telemetry) {
+		return false
+	}
+
+	// otherwise allow the telemetry type
+	return true
 }

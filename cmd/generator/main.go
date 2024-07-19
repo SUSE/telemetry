@@ -8,6 +8,7 @@ import (
 
 	"github.com/SUSE/telemetry/pkg/client"
 	"github.com/SUSE/telemetry/pkg/config"
+	"github.com/SUSE/telemetry/pkg/logging"
 	"github.com/SUSE/telemetry/pkg/types"
 )
 
@@ -21,10 +22,11 @@ type options struct {
 	tags      types.Tags
 	telemetry types.TelemetryType
 	jsonFiles []string
+	debug     bool
 }
 
 func (o options) String() string {
-	return fmt.Sprintf("config=%v, dryrun=%v, tags=%v, telemetry=%v, jsonFiles=%v", o.config, o.dryrun, o.tags, o.telemetry, o.jsonFiles)
+	return fmt.Sprintf("config=%v, dryrun=%v, tags=%v, telemetry=%v, jsonFiles=%v, debug=%v", o.config, o.dryrun, o.tags, o.telemetry, o.jsonFiles, o.debug)
 }
 
 var opts options
@@ -32,11 +34,23 @@ var opts options
 func main() {
 	fmt.Printf("Generator: %s\n", opts)
 
+	if err := logging.SetupBasicLogging(opts.debug); err != nil {
+		panic(err)
+	}
+
 	cfg, err := config.NewConfig(opts.config)
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Printf("Config: %+v\n", cfg)
+
+	lm := logging.NewLogManager()
+	if opts.debug {
+		lm.SetLevel("debug")
+	}
+	if err := lm.ConfigAndSetup(&cfg.Logging); err != nil {
+		panic(err)
+	}
 
 	tc, err := client.NewTelemetryClient(cfg)
 	if err != nil {
@@ -85,6 +99,7 @@ func main() {
 
 func init() {
 	flag.StringVar(&opts.config, "config", client.CONFIG_PATH, "Path to config file to read")
+	flag.BoolVar(&opts.debug, "debug", false, "Whether to enable debug level logging.")
 	flag.BoolVar(&opts.dryrun, "dryrun", false, "Process provided JSON files but do add them to the telemetry staging area.")
 	flag.BoolVar(&opts.noreports, "noreports", false, "Do not create Telemetry reports")
 	flag.BoolVar(&opts.nobundles, "nobundles", false, "Do not create Telemetry bundles")
