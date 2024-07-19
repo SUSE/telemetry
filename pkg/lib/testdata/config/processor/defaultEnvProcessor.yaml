@@ -1,7 +1,15 @@
-
 enabled: true
 customer_id: 1234567890
 tags: []
 datastores:
   driver: sqlite3
   params: /tmp/telemetry/processor/telemetry.db
+logging:
+  level: info
+  location: stderr
+  style: text
+class_options:
+  opt_out: true
+  opt_in: false
+  allow: []
+  deny: []

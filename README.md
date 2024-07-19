@@ -1,6 +1,9 @@
 # telemetry
 SUSE Telemetry Client Library and associated client CLI tools
 
+See [examples](examples/) directory for examples of how to use the
+Telemetry Client library.
+
 # What's available
 
 ## cmd/generator

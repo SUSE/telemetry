@@ -7,6 +7,7 @@ import (
 
 	"github.com/SUSE/telemetry/pkg/client"
 	"github.com/SUSE/telemetry/pkg/config"
+	"github.com/SUSE/telemetry/pkg/logging"
 )
 
 // options is a struct of the options
@@ -15,10 +16,11 @@ type options struct {
 	items   bool
 	bundles bool
 	reports bool
+	debug   bool
 }
 
 func (o options) String() string {
-	return fmt.Sprintf("config=%v, items=%v, bundles=%v, reports=%v", o.config, o.items, o.bundles, o.reports)
+	return fmt.Sprintf("config=%v, items=%v, bundles=%v, reports=%v, debug=%v", o.config, o.items, o.bundles, o.reports, o.debug)
 }
 
 var opts options
@@ -26,11 +28,23 @@ var opts options
 func main() {
 	fmt.Printf("clientds: %s\n", opts)
 
+	if err := logging.SetupBasicLogging(opts.debug); err != nil {
+		panic(err)
+	}
+
 	cfg, err := config.NewConfig(opts.config)
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Printf("Config: %+v\n", cfg)
+
+	lm := logging.NewLogManager()
+	if opts.debug {
+		lm.SetLevel("debug")
+	}
+	if err := lm.ConfigAndSetup(&cfg.Logging); err != nil {
+		panic(err)
+	}
 
 	tc, err := client.NewTelemetryClient(cfg)
 	if err != nil {
@@ -86,6 +100,7 @@ func main() {
 }
 
 func init() {
+	flag.BoolVar(&opts.debug, "debug", false, "Enable debug level logging")
 	flag.StringVar(&opts.config, "config", client.CONFIG_PATH, "Path to config file to read")
 	flag.BoolVar(&opts.items, "items", false, "Report details on telemetry data items datastore")
 	flag.BoolVar(&opts.bundles, "bundles", false, "Report details on telemetry bundles datastore")

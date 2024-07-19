@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
@@ -42,6 +44,30 @@ func NewTelemetryClient(cfg *config.Config) (tc *TelemetryClient, err error) {
 	return
 }
 
+func checkFileExists(filePath string) bool {
+	slog.Debug("checking for existence", slog.String("filePath", filePath))
+
+	if _, err := os.Stat(filePath); err != nil {
+		if !errors.Is(err, fs.ErrExist) {
+			slog.Debug(
+				"failed to stat path",
+				slog.String("filePath", filePath),
+				slog.String("error", err.Error()),
+			)
+			return false
+		}
+	}
+
+	return true
+}
+
+func checkFileReadAccessible(filePath string) bool {
+	if _, err := os.Open(filePath); err != nil {
+		return false
+	}
+	return true
+}
+
 func ensureInstanceIdExists(instIdPath string) error {
 
 	slog.Info("ensuring existence of instIdPath", slog.String("instIdPath", instIdPath))
@@ -66,6 +92,22 @@ func ensureInstanceIdExists(instIdPath string) error {
 	}
 
 	return nil
+}
+
+func (tc *TelemetryClient) AuthAccessible() bool {
+	return checkFileReadAccessible(tc.AuthPath())
+}
+
+func (tc *TelemetryClient) InstanceIdAccessible() bool {
+	return checkFileReadAccessible(tc.InstIdPath())
+}
+
+func (tc *TelemetryClient) HasAuth() bool {
+	return checkFileExists(tc.AuthPath())
+}
+
+func (tc *TelemetryClient) HasInstanceId() bool {
+	return checkFileExists(tc.InstIdPath())
 }
 
 func (tc *TelemetryClient) Processor() telemetrylib.TelemetryProcessor {

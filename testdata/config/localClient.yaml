@@ -9,3 +9,8 @@ logging:
   level: info
   location: stderr
   style: text
+class_options:
+  opt_out: true
+  opt_in: false
+  allow: []
+  deny: []

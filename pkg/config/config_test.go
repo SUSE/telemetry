@@ -26,6 +26,13 @@ func (t *TestConfigTestSuite) TestConfigFileNotFound() {
 	assert.Equal(t.T(), DefaultCfg.Tags, config.Tags, "Tags value is not the expected")
 	assert.Equal(t.T(), DefaultCfg.DataStores.Driver, config.DataStores.Driver, "DataStores.Driver is not the expected")
 	assert.Equal(t.T(), DefaultCfg.DataStores.Params, config.DataStores.Params, "DataStores.Params is not the expected")
+	assert.Equal(t.T(), DefaultCfg.Logging.Level, config.Logging.Level, "Logging.Level is not the expected")
+	assert.Equal(t.T(), DefaultCfg.Logging.Location, config.Logging.Location, "Logging.Location is not the expected")
+	assert.Equal(t.T(), DefaultCfg.Logging.Style, config.Logging.Style, "Logging.Style is not the expected")
+	assert.Equal(t.T(), DefaultCfg.ClassOptions.OptOut, config.ClassOptions.OptOut, "ClassOptions.OptOut is not the expected")
+	assert.Equal(t.T(), DefaultCfg.ClassOptions.OptIn, config.ClassOptions.OptIn, "ClassOptions.OptIn is not the expected")
+	assert.Equal(t.T(), DefaultCfg.ClassOptions.Allow, config.ClassOptions.Allow, "ClassOptions.Allow is not the expected")
+	assert.Equal(t.T(), DefaultCfg.ClassOptions.Deny, config.ClassOptions.Deny, "ClassOptions.Deny is not the expected")
 }
 
 func (t *TestConfigTestSuite) TestConfigFileFound() {
@@ -38,14 +45,23 @@ func (t *TestConfigTestSuite) TestConfigFileFound() {
 	params := "/tmp/telemetry/testcfg/telemetry.db"
 
 	content := `
-    telemetry_base_url: %s
-    enabled: true
-    customer_id: 01234
-    tags: []
-    datastores:
-      driver: %s
-      params: %s
-    `
+telemetry_base_url: %s
+enabled: true
+customer_id: 01234
+tags: []
+datastores:
+  driver: %s
+  params: %s
+logging:
+  level: info
+  location: stderr
+  style: text
+class_options:
+  opt_out: true
+  opt_in: false
+  allow: []
+  deny: []
+`
 
 	formattedContents := fmt.Sprintf(content, url, driver, params)
 	_, err = tmpfile.Write([]byte(formattedContents))
@@ -70,14 +86,23 @@ func (t *TestConfigTestSuite) TestConfigFileFoundButUnparsable() {
 	params := "/tmp/telemetry/testcfg/telemetry.db"
 
 	content := `
-    telemetry_base_url: %s
-    enabled true
-    customer_id: 01234
-    tags: []
-    datastores:
-      driver: %s
-      params: %s
-    `
+telemetry_base_url: %s
+enabled true
+customer_id: 01234
+tags: []
+datastores:
+  driver: %s
+  params: %s
+logging:
+  level: info
+  location: stderr
+  style: text
+class_options:
+  opt_out: true
+  opt_in: false
+  allow: []
+  deny: []
+`
 
 	formattedContents := fmt.Sprintf(content, url, driver, params)
 	_, err = tmpfile.Write([]byte(formattedContents))
