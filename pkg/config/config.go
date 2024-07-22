@@ -3,7 +3,6 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"log/slog"
 	"os"
 	"slices"
@@ -94,7 +93,6 @@ func NewConfig(cfgFile string) (*Config, error) {
 		return cfg, fmt.Errorf("failed to read contents of config file '%s': %s", cfgFile, err)
 	}
 
-	log.Printf("Contents: %q", contents)
 	slog.Info("Contents", slog.String("contents", string(contents)))
 	err = yaml.Unmarshal(contents, &cfg)
 	if err != nil {

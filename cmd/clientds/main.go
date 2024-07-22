@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/SUSE/telemetry/pkg/client"
 	"github.com/SUSE/telemetry/pkg/config"
@@ -34,7 +34,12 @@ func main() {
 
 	cfg, err := config.NewConfig(opts.config)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error(
+			"Failed to load specified config",
+			slog.String("config", opts.config),
+			slog.String("Error", err.Error()),
+		)
+		panic(err)
 	}
 	fmt.Printf("Config: %+v\n", cfg)
 
@@ -48,7 +53,12 @@ func main() {
 
 	tc, err := client.NewTelemetryClient(cfg)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error(
+			"Failed to instantiate TelemetryClient",
+			slog.String("config", opts.config),
+			slog.String("Error", err.Error()),
+		)
+		panic(err)
 	}
 
 	processor := tc.Processor()
@@ -56,7 +66,11 @@ func main() {
 	if opts.items {
 		itemRows, err := processor.GetItemRows()
 		if err != nil {
-			log.Fatal(err.Error())
+			slog.Error(
+				"Failed to retrieve items from client datastore",
+				slog.String("error", err.Error()),
+			)
+			panic(err)
 		}
 
 		itemCount := len(itemRows)
@@ -71,7 +85,11 @@ func main() {
 	if opts.bundles {
 		bundleRows, err := processor.GetBundleRows()
 		if err != nil {
-			log.Fatal(err.Error())
+			slog.Error(
+				"Failed to retrieve bundles from client datastore",
+				slog.String("error", err.Error()),
+			)
+			panic(err)
 		}
 
 		bundleCount := len(bundleRows)
@@ -86,7 +104,11 @@ func main() {
 	if opts.reports {
 		reportRows, err := processor.GetReportRows()
 		if err != nil {
-			log.Fatal(err.Error())
+			slog.Error(
+				"Failed to retrieve reports from client datastore",
+				slog.String("error", err.Error()),
+			)
+			panic(err)
 		}
 
 		reportCount := len(reportRows)

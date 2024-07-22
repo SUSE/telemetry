@@ -2,7 +2,6 @@ package telemetrylib
 
 import (
 	"database/sql"
-	"log"
 	"log/slog"
 	"strings"
 
@@ -136,7 +135,12 @@ func (b *TelemetryBundleRow) Insert(db *sql.DB, itemIDs []int64) (bundleId strin
 	for _, itemID := range itemIDs {
 		_, err := db.Exec("UPDATE items SET bundleId = ? WHERE id = ?", b.Id, itemID)
 		if err != nil {
-			log.Fatal(err)
+			slog.Error(
+				"Failed to update bundleId in item",
+				slog.Int64("itemId", itemID),
+				slog.String("error", err.Error()),
+			)
+			return "", err
 		}
 	}
 

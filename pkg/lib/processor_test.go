@@ -2,7 +2,7 @@ package telemetrylib
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 	"testing"
 
@@ -28,12 +28,20 @@ func NewProcessorTestEnv(cfgFile string) (*telemetryProcessorTestEnv, error) {
 func (t *telemetryProcessorTestEnv) setup() (err error) {
 	t.cfg, err = config.NewConfig(t.cfgPath)
 	if err != nil {
-		log.Print(err.Error())
+		slog.Error(
+			"Failed to load config",
+			slog.String("cfgPath", t.cfgPath),
+			slog.String("error", err.Error()),
+		)
 		return
 	}
 	processor, err := NewTelemetryProcessor(&t.cfg.DataStores)
 	if err != nil {
-		log.Printf("failed to setup telemetry processor for config %q: %s", t.cfgPath, err.Error())
+		slog.Error(
+			"Failed to setup telemetry processor",
+			slog.String("cfgPath", t.cfgPath),
+			slog.String("error", err.Error()),
+		)
 		return
 	}
 	t.telemetryprocessor = processor
@@ -130,7 +138,6 @@ func (t *TelemetryProcessorTestSuite) TestCreateBundle() {
 	bundleRow, berr := telemetryprocessor.GenerateBundle(1, "customer id", btags)
 
 	if berr != nil {
-		log.Printf("Failed to create the bundle")
 		t.Fail("Test failed to create the bundle")
 	}
 
@@ -208,7 +215,6 @@ func (t *TelemetryProcessorTestSuite) TestReport() {
 			btags := types.Tags{types.Tag("key1=value1"), types.Tag("key2")}
 			bundleRow, berr := telemetryprocessor.GenerateBundle(1, "customer id", btags)
 			if berr != nil {
-				log.Printf("Failed to create the bundle")
 				t.Fail("Test failed to create the bundle")
 			}
 
@@ -242,7 +248,6 @@ func (t *TelemetryProcessorTestSuite) TestReport() {
 			btags1 := types.Tags{types.Tag("key3=value3"), types.Tag("key4")}
 			bundleRow, berr = telemetryprocessor.GenerateBundle(1, "customer id", btags1)
 			if berr != nil {
-				log.Printf("Failed to create the bundle")
 				t.Fail("Test failed to create the bundle")
 			}
 
@@ -370,7 +375,11 @@ func addDataItems(totalItems int, processor TelemetryProcessor) error {
 		formattedJSON := fmt.Sprintf(payload, utils.GenerateRandomString(3))
 		err := processor.AddData(telemetryType, []byte(formattedJSON), tags)
 		if err != nil {
-			log.Printf("Failed to add the item %d", numItems)
+			slog.Error(
+				"Failed to add the item",
+				slog.Int("numItems", numItems),
+				slog.String("error", err.Error()),
+			)
 			return err
 		}
 

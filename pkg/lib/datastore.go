@@ -3,7 +3,6 @@ package telemetrylib
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -36,11 +35,18 @@ func NewDatabaseStore(dbConfig config.DBConfig) (ds *DatabaseStore, err error) {
 			// create file if it doesn't already exist, without truncating it if it does.
 			file, err := os.OpenFile(dbPath, os.O_RDONLY|os.O_CREATE, 0600)
 			if err != nil {
-				log.Fatal(err.Error())
+				slog.Error(
+					"Failed to open(O_CREATE) SQLite file",
+					slog.String("dbPath", dbPath),
+					slog.String("error", err.Error()),
+				)
 				return nil, err
 			}
 			file.Close()
-			slog.Info("created SQLite file", slog.String("filePath", dbPath))
+			slog.Debug(
+				"created SQLite file",
+				slog.String("dbPath", dbPath),
+			)
 		}
 
 		// exsure foreign_keys and journal_mode options are specified
@@ -177,7 +183,12 @@ func (d *DatabaseStore) GetItems(bundleIds ...any) (itemRowIds []int64, itemRows
 	// NOTE: Query() extra args must be of type any hence queryIds is type []any
 	rows, err := d.Conn.Query(query, queryBundleIds...)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error(
+			"Failed to retrieve items with specified bundleIds",
+			slog.Any("bundleIds", bundleIds),
+			slog.String("error", err.Error()),
+		)
+		return
 	}
 	defer rows.Close()
 
@@ -194,21 +205,37 @@ func (d *DatabaseStore) GetItems(bundleIds ...any) (itemRowIds []int64, itemRows
 			&itemRow.ItemChecksum,
 			&itemRow.Compression,
 			&itemRow.BundleId); err != nil {
-			log.Fatal(err)
+			slog.Error(
+				"Failed to scan item row",
+				slog.String("error", err.Error()),
+			)
+			return nil, nil, err
 		}
 
 		// ItemData can be stored as compressed data
 		itemRow.ItemData, err = utils.DecompressWhenNeeded(itemRow.ItemData, itemRow.Compression)
+		if err != nil {
+			slog.Error(
+				"Failed to decompress item data",
+				slog.String("itemId", itemRow.ItemId),
+				slog.String("error", err.Error()),
+			)
+			return nil, nil, err
+		}
 
 		itemRows = append(itemRows, &itemRow)
 		itemRowIds = append(itemRowIds, itemRow.Id)
 	}
 
-	if err := rows.Err(); err != nil {
-		log.Fatal(err)
+	if err = rows.Err(); err != nil {
+		slog.Error(
+			"Failed to process retrieved item rows",
+			slog.String("error", err.Error()),
+		)
+		return
 	}
 
-	return itemRowIds, itemRows, err
+	return
 }
 
 func (d *DatabaseStore) GetBundles(reportIds ...any) (bundleRowIds []int64, bundleRows []*TelemetryBundleRow, err error) {
@@ -223,7 +250,12 @@ func (d *DatabaseStore) GetBundles(reportIds ...any) (bundleRowIds []int64, bund
 	// NOTE: Query() extra args must be of type any hence queryIds is type []any
 	rows, err := d.Conn.Query(query, queryBundleIds...)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error(
+			"Failed to retrieve bundles with specified reportIds",
+			slog.Any("reportIds", reportIds),
+			slog.String("error", err.Error()),
+		)
+		return
 	}
 	defer rows.Close()
 
@@ -239,18 +271,25 @@ func (d *DatabaseStore) GetBundles(reportIds ...any) (bundleRowIds []int64, bund
 			&bundleRow.BundleAnnotations,
 			&bundleRow.BundleChecksum,
 			&bundleRow.ReportId); err != nil {
-			log.Fatal(err)
+			slog.Error(
+				"Failed to scan bundle row",
+				slog.String("error", err.Error()),
+			)
+			return nil, nil, err
 		}
 		bundleRows = append(bundleRows, &bundleRow)
 		bundleRowIds = append(bundleRowIds, bundleRow.Id)
 	}
 
-	if err := rows.Err(); err != nil {
-		log.Fatal(err)
+	if err = rows.Err(); err != nil {
+		slog.Error(
+			"Failed to process retrieved bundle rows",
+			slog.String("error", err.Error()),
+		)
+		return
 	}
 
-	return bundleRowIds, bundleRows, err
-
+	return
 }
 
 func (d *DatabaseStore) GetReports(ids ...any) (reportRowIds []int64, reportRows []*TelemetryReportRow, err error) {
@@ -265,7 +304,12 @@ func (d *DatabaseStore) GetReports(ids ...any) (reportRowIds []int64, reportRows
 	// NOTE: Query() extra args must be of type any hence queryIds is type []any
 	rows, err := d.Conn.Query(query, queryIds...)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error(
+			"Failed to retrieve reports with specified ids",
+			slog.Any("ids", ids),
+			slog.String("error", err.Error()),
+		)
+		return
 	}
 	defer rows.Close()
 
@@ -279,21 +323,28 @@ func (d *DatabaseStore) GetReports(ids ...any) (reportRowIds []int64, reportRows
 			&reportRow.ReportClientId,
 			&reportRow.ReportAnnotations,
 			&reportRow.ReportChecksum); err != nil {
-			log.Fatal(err)
+			slog.Error(
+				"Failed to scan report row",
+				slog.String("error", err.Error()),
+			)
+			return nil, nil, err
 		}
 		reportRows = append(reportRows, &reportRow)
 		reportRowIds = append(reportRowIds, reportRow.Id)
 	}
 
-	if err := rows.Err(); err != nil {
-		log.Fatal(err)
+	if err = rows.Err(); err != nil {
+		slog.Error(
+			"Failed to process retrieved report rows",
+			slog.String("error", err.Error()),
+		)
+		return
 	}
 
-	return reportRowIds, reportRows, err
+	return
 }
 
-func (d *DatabaseStore) GetItemCount(bundleIds ...any) (int, error) {
-	var count int
+func (d *DatabaseStore) GetItemCount(bundleIds ...any) (count int, err error) {
 	// generate the SQL count query statement for the items table
 	query, queryIds := genSqlCountQuery(
 		"items",
@@ -302,15 +353,19 @@ func (d *DatabaseStore) GetItemCount(bundleIds ...any) (int, error) {
 		bundleIds,
 	)
 	// NOTE: Query() extra args must be of type any hence queryIds is type []any
-	err := d.Conn.QueryRow(query, queryIds...).Scan(&count)
+	err = d.Conn.QueryRow(query, queryIds...).Scan(&count)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error(
+			"Failed to count items associated with specified bundles",
+			slog.Any("bundleIds", bundleIds),
+			slog.String("error", err.Error()),
+		)
+		return
 	}
-	return count, err
+	return
 }
 
-func (d *DatabaseStore) GetBundleCount(reportIds ...any) (int, error) {
-	var count int
+func (d *DatabaseStore) GetBundleCount(reportIds ...any) (count int, err error) {
 	// generate the SQL count query statement for the bundles table
 	query, queryIds := genSqlCountQuery(
 		"bundles",
@@ -319,15 +374,19 @@ func (d *DatabaseStore) GetBundleCount(reportIds ...any) (int, error) {
 		reportIds,
 	)
 	// NOTE: Query() extra args must be of type any hence queryIds is type []any
-	err := d.Conn.QueryRow(query, queryIds...).Scan(&count)
+	err = d.Conn.QueryRow(query, queryIds...).Scan(&count)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error(
+			"Failed to count bundles associated with specified reports",
+			slog.Any("reportIds", reportIds),
+			slog.String("error", err.Error()),
+		)
+		return
 	}
-	return count, err
+	return
 }
 
-func (d *DatabaseStore) GetReportCount(ids ...any) (int, error) {
-	var count int
+func (d *DatabaseStore) GetReportCount(ids ...any) (count int, err error) {
 	// generate the SQL count query statement for the reports table
 	query, queryIds := genSqlCountQuery(
 		"reports",
@@ -336,11 +395,16 @@ func (d *DatabaseStore) GetReportCount(ids ...any) (int, error) {
 		ids,
 	)
 	// NOTE: Query() extra args must be of type any hence queryIds is type []any
-	err := d.Conn.QueryRow(query, queryIds...).Scan(&count)
+	err = d.Conn.QueryRow(query, queryIds...).Scan(&count)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error(
+			"Failed to count reports with specified ids",
+			slog.Any("ids", ids),
+			slog.String("error", err.Error()),
+		)
+		return
 	}
-	return count, err
+	return
 }
 
 func (d *DatabaseStore) GetDataItemRowsInABundle(bundleId string) (itemRows []*TelemetryDataItemRow, err error) {
@@ -348,38 +412,58 @@ func (d *DatabaseStore) GetDataItemRowsInABundle(bundleId string) (itemRows []*T
 	rows, err := d.Conn.Query(`SELECT items.id, items.itemId, items.itemType, items.itemTimestamp, items.itemAnnotations, items.itemData, items.itemChecksum, items.compression, items.bundleId FROM items JOIN bundles ON items.bundleId = bundles.id WHERE bundles.bundleId = ?`, bundleId)
 
 	if err != nil {
-		log.Fatal(err)
+		slog.Error(
+			"Failed to retrieve items with specified bundleId",
+			slog.String("bundleId", bundleId),
+			slog.String("error", err.Error()),
+		)
+		return
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		var dataitemRow TelemetryDataItemRow
+		var itemRow TelemetryDataItemRow
 		if err := rows.Scan(
-			&dataitemRow.Id,
-			&dataitemRow.ItemId,
-			&dataitemRow.ItemType,
-			&dataitemRow.ItemTimestamp,
-			&dataitemRow.ItemAnnotations,
-			&dataitemRow.ItemData,
-			&dataitemRow.ItemChecksum,
-			&dataitemRow.Compression,
-			&dataitemRow.BundleId); err != nil {
-			log.Fatal(err)
+			&itemRow.Id,
+			&itemRow.ItemId,
+			&itemRow.ItemType,
+			&itemRow.ItemTimestamp,
+			&itemRow.ItemAnnotations,
+			&itemRow.ItemData,
+			&itemRow.ItemChecksum,
+			&itemRow.Compression,
+			&itemRow.BundleId); err != nil {
+			slog.Error(
+				"Failed to scan item row",
+				slog.String("error", err.Error()),
+			)
+			return nil, err
 		}
 
 		// ItemData can be stored as compressed data
-		dataitemRow.ItemData, err = utils.DecompressWhenNeeded(dataitemRow.ItemData, dataitemRow.Compression)
+		itemRow.ItemData, err = utils.DecompressWhenNeeded(itemRow.ItemData, itemRow.Compression)
+		if err != nil {
+			slog.Error(
+				"Failed to decompress item data",
+				slog.String("itemId", itemRow.ItemId),
+				slog.String("error", err.Error()),
+			)
+			return nil, err
+		}
 
-		itemRows = append(itemRows, &dataitemRow)
+		itemRows = append(itemRows, &itemRow)
 
 	}
 
-	if err := rows.Err(); err != nil {
-		log.Fatal(err)
+	if err = rows.Err(); err != nil {
+		slog.Error(
+			"Failed to process retrieved item rows",
+			slog.String("error", err.Error()),
+		)
+		return
 	}
 
-	return itemRows, err
-
+	return
 }
 
 func (d *DatabaseStore) GetBundleRowsInAReport(reportId string) (bundleRows []*TelemetryBundleRow, err error) {
@@ -387,7 +471,12 @@ func (d *DatabaseStore) GetBundleRowsInAReport(reportId string) (bundleRows []*T
 	rows, err := d.Conn.Query(`SELECT bundles.id, bundles.bundleId, bundles.bundleTimestamp, bundles.bundleClientId, bundles.bundleCustomerId, bundles.bundleAnnotations, bundles.bundleChecksum, bundles.reportId FROM bundles JOIN reports ON bundles.reportId = reports.id WHERE reports.reportId = ?`, reportId)
 
 	if err != nil {
-		log.Fatal(err)
+		slog.Error(
+			"Failed to retrieve bundles with specified reportId",
+			slog.String("reportId", reportId),
+			slog.String("error", err.Error()),
+		)
+		return
 	}
 	defer rows.Close()
 
@@ -403,17 +492,24 @@ func (d *DatabaseStore) GetBundleRowsInAReport(reportId string) (bundleRows []*T
 			&bundleRow.BundleAnnotations,
 			&bundleRow.BundleChecksum,
 			&bundleRow.ReportId); err != nil {
-			log.Fatal(err)
+			slog.Error(
+				"Failed to scan bundle row",
+				slog.String("error", err.Error()),
+			)
+			return nil, err
 		}
 		bundleRows = append(bundleRows, &bundleRow)
 	}
 
-	if err := rows.Err(); err != nil {
-		log.Fatal(err)
+	if err = rows.Err(); err != nil {
+		slog.Error(
+			"Failed to process retrieved bundle rows",
+			slog.String("error", err.Error()),
+		)
+		return
 	}
 
 	return bundleRows, err
-
 }
 
 // only for testing

@@ -2,7 +2,6 @@ package telemetrylib
 
 import (
 	"errors"
-	"log"
 	"log/slog"
 )
 
@@ -43,8 +42,7 @@ func (t *TelemetryDataLimits) GetTelemetryDataLimits() TelemetryDataLimits {
 // CheckLimits checks the telemetry data limits
 func (t *TelemetryDataLimits) CheckLimits(data []byte) error {
 	dataSize := uint64(len(data))
-	log.Println("Checking size limits for Telemetry Data")
-	slog.Info(
+	slog.Debug(
 		"Checking size limits for Telemetry Data",
 		slog.Uint64("Data size", dataSize),
 		slog.Uint64("Max", t.MaxSize),
@@ -58,7 +56,10 @@ func (t *TelemetryDataLimits) CheckLimits(data []byte) error {
 	case dataSize < t.MinSize:
 		return errors.New("payload size is below the minimum limit")
 	default:
-		slog.Info("Checks passed")
+		slog.Debug(
+			"Acceptable telemetry data size",
+			slog.Uint64("Data size", dataSize),
+		)
 		return nil
 	}
 }
