@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 
 	"github.com/SUSE/telemetry/pkg/client"
@@ -40,7 +40,12 @@ func main() {
 
 	cfg, err := config.NewConfig(opts.config)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error(
+			"Failed to load config",
+			slog.String("config", opts.config),
+			slog.String("error", err.Error()),
+		)
+		panic(err)
 	}
 	fmt.Printf("Config: %+v\n", cfg)
 
@@ -54,37 +59,64 @@ func main() {
 
 	tc, err := client.NewTelemetryClient(cfg)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error(
+			"Failed to instantiate TelemetryClient",
+			slog.String("config", opts.config),
+			slog.String("error", err.Error()),
+		)
+		panic(err)
 	}
 
 	err = tc.Register()
 	if err != nil {
-		log.Fatal(err)
+		slog.Error(
+			"Failed to register TelemetryClient",
+			slog.String("error", err.Error()),
+		)
+		panic(err)
 	}
 
 	for _, jsonFile := range opts.jsonFiles {
 		jsonContent, err := os.ReadFile(jsonFile)
 		if err != nil {
-			log.Fatal(fmt.Errorf("error reading contents of telemetry JSON file: %s", err))
+			slog.Error(
+				"Error reading telemetry data",
+				slog.String("jsonFile", jsonFile),
+				slog.String("error", err.Error()),
+			)
+			panic(err)
 		}
 
 		err = tc.Generate(opts.telemetry, jsonContent, opts.tags)
 		if err != nil {
-			log.Fatal(fmt.Errorf("error generating a telemetry data item from JSON file '%s': %s", jsonFile, err))
+			slog.Error(
+				"Error generating telemetry data item",
+				slog.String("jsonFile", jsonFile),
+				slog.String("error", err.Error()),
+			)
+			panic(err)
 		}
 	}
 
 	// create one or more bundles from available data items
 	if !opts.nobundles {
 		if err := tc.CreateBundles(opts.tags); err != nil {
-			log.Fatal(fmt.Errorf("error telemetry bundles: %s", err))
+			slog.Error(
+				"Error creating telemetry bundles",
+				slog.String("error", err.Error()),
+			)
+			panic(err)
 		}
 	}
 
 	// create one or more reports from available bundles
 	if !opts.noreports {
 		if err := tc.CreateReports(opts.tags); err != nil {
-			log.Fatal(fmt.Errorf("error creating telemetry reports: %s", err))
+			slog.Error(
+				"Error creating telemetry reports",
+				slog.String("error", err.Error()),
+			)
+			panic(err)
 		}
 	}
 
@@ -92,7 +124,11 @@ func main() {
 	// submit available reports.
 	if !opts.nosubmit {
 		if err := tc.Submit(); err != nil {
-			log.Fatal(fmt.Errorf("error submitting telemetry: %s", err))
+			slog.Error(
+				"Error submitting telemetry",
+				slog.String("error", err.Error()),
+			)
+			panic(err)
 		}
 	}
 }
