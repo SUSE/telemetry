@@ -14,29 +14,27 @@ import (
 
 // options is a struct of the options
 type options struct {
-	config    string
-	dryrun    bool
-	nobundles bool
-	noreports bool
-	nosubmit  bool
-	tags      types.Tags
-	telemetry types.TelemetryType
-	jsonFiles []string
-	debug     bool
-}
-
-func (o options) String() string {
-	return fmt.Sprintf("config=%v, dryrun=%v, tags=%v, telemetry=%v, jsonFiles=%v, debug=%v", o.config, o.dryrun, o.tags, o.telemetry, o.jsonFiles, o.debug)
+	config       string
+	dryrun       bool
+	noregister   bool
+	authenticate bool
+	nobundles    bool
+	noreports    bool
+	nosubmit     bool
+	tags         types.Tags
+	telemetry    types.TelemetryType
+	jsonFiles    []string
+	debug        bool
 }
 
 var opts options
 
 func main() {
-	fmt.Printf("Generator: %s\n", opts)
-
 	if err := logging.SetupBasicLogging(opts.debug); err != nil {
 		panic(err)
 	}
+
+	slog.Debug("Generator", slog.Any("options", opts))
 
 	cfg, err := config.NewConfig(opts.config)
 	if err != nil {
@@ -47,13 +45,20 @@ func main() {
 		)
 		panic(err)
 	}
-	fmt.Printf("Config: %+v\n", cfg)
 
+	// setup logging based upon config settings
 	lm := logging.NewLogManager()
-	if opts.debug {
-		lm.SetLevel("debug")
+	if err := lm.Config(&cfg.Logging); err != nil {
+		panic(err)
 	}
-	if err := lm.ConfigAndSetup(&cfg.Logging); err != nil {
+
+	// override config log level to debug if option specified
+	if opts.debug {
+		lm.SetLevel("DEBUG")
+		slog.Debug("Debug mode enabled")
+	}
+
+	if err := lm.Setup(); err != nil {
 		panic(err)
 	}
 
@@ -67,13 +72,26 @@ func main() {
 		panic(err)
 	}
 
-	err = tc.Register()
-	if err != nil {
-		slog.Error(
-			"Failed to register TelemetryClient",
-			slog.String("error", err.Error()),
-		)
-		panic(err)
+	if !opts.noregister {
+		err = tc.Register()
+		if err != nil {
+			slog.Error(
+				"Failed to register TelemetryClient",
+				slog.String("error", err.Error()),
+			)
+			panic(err)
+		}
+	}
+
+	if opts.authenticate {
+		err = tc.Authenticate()
+		if err != nil {
+			slog.Error(
+				"Failed to (re)uthenticate TelemetryClient",
+				slog.String("error", err.Error()),
+			)
+			panic(err)
+		}
 	}
 
 	for _, jsonFile := range opts.jsonFiles {
@@ -137,6 +155,8 @@ func init() {
 	flag.StringVar(&opts.config, "config", client.CONFIG_PATH, "Path to config file to read")
 	flag.BoolVar(&opts.debug, "debug", false, "Whether to enable debug level logging.")
 	flag.BoolVar(&opts.dryrun, "dryrun", false, "Process provided JSON files but do add them to the telemetry staging area.")
+	flag.BoolVar(&opts.noregister, "noregister", false, "Whether to skip registering the telemetry client if it is needed.")
+	flag.BoolVar(&opts.authenticate, "authenticate", false, "Whether to (re)authenticate the telemetry client.")
 	flag.BoolVar(&opts.noreports, "noreports", false, "Do not create Telemetry reports")
 	flag.BoolVar(&opts.nobundles, "nobundles", false, "Do not create Telemetry bundles")
 	flag.BoolVar(&opts.nosubmit, "nosubmit", false, "Do not submit any Telemetry reports")

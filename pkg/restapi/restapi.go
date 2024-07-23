@@ -14,7 +14,7 @@ import (
 
 // ClientRegistrationRequest is the request payload body POST'd to the server
 type ClientRegistrationRequest struct {
-	ClientInstanceId string `json:"clientInstanceId"`
+	ClientInstanceId types.ClientInstanceId `json:"clientInstanceId"`
 }
 
 func (c *ClientRegistrationRequest) String() string {
@@ -35,6 +35,22 @@ func (c *ClientRegistrationResponse) String() string {
 
 	return string(bytes)
 }
+
+// Client Authenticate handling via /temelemtry/authenticate
+type ClientAuthenticationRequest struct {
+	ClientId   int64                      `json:"clientId"`
+	InstIdHash types.ClientInstanceIdHash `json:"instIdHash"`
+}
+
+func (c *ClientAuthenticationRequest) String() string {
+	bytes, _ := json.Marshal(c)
+
+	return string(bytes)
+}
+
+// for now the /authenticate response is the same as the /register
+// response
+type ClientAuthenticationResponse = ClientRegistrationResponse
 
 //
 // Client Telemetry Report via /telemetry/report POST

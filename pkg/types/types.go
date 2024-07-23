@@ -1,7 +1,12 @@
 package types
 
 import (
+	"crypto/sha256"
+	"crypto/sha512"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"hash"
 	"strings"
 	"time"
 )
@@ -122,4 +127,63 @@ func (tc *TelemetryClass) String() string {
 		return "OPT-IN"
 	}
 	return "UNKNOWN_TELEMETRY_CLASS"
+}
+
+type ClientInstanceIdHash struct {
+	Method string `json:"method"`
+	Value  string `json:"value"`
+}
+
+func (c *ClientInstanceIdHash) String() string {
+	bytes, _ := json.Marshal(c)
+
+	return string(bytes)
+}
+
+func (c *ClientInstanceIdHash) Match(m *ClientInstanceIdHash) bool {
+	return (c.Method == m.Method) && (c.Value == m.Value)
+}
+
+// ClientInstanceId
+type ClientInstanceId string
+
+func (c *ClientInstanceId) String() string {
+	return string(*c)
+}
+
+const DEF_INSTID_HASH_METHOD = "sha256"
+
+func (c *ClientInstanceId) Hash(inputMethod string) *ClientInstanceIdHash {
+	var methodHash hash.Hash
+
+	// this routine is expected to succeed so ensure a valid method is used
+	method := strings.ToLower(inputMethod)
+	switch method {
+	case "sha256":
+		// valid supported method
+	case "sha512":
+		// valid supported method
+	case "default":
+		// use the default method
+		fallthrough
+	default:
+		// set the method to the desired default method
+		method = DEF_INSTID_HASH_METHOD
+	}
+
+	// instantiate methodHash associated with selected method and
+	// write the instanced id data to it
+	switch method {
+	case "sha256":
+		methodHash = sha256.New()
+	case "sha512":
+		methodHash = sha512.New()
+	}
+	methodHash.Write([]byte(*c))
+
+	// construct the return value
+	return &ClientInstanceIdHash{
+		Method: method,
+		Value:  hex.EncodeToString(methodHash.Sum(nil)),
+	}
 }
