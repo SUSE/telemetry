@@ -43,11 +43,19 @@ func main() {
 	}
 	fmt.Printf("Config: %+v\n", cfg)
 
+	// setup logging based upon config settings
 	lm := logging.NewLogManager()
-	if opts.debug {
-		lm.SetLevel("debug")
+	if err := lm.Config(&cfg.Logging); err != nil {
+		panic(err)
 	}
-	if err := lm.ConfigAndSetup(&cfg.Logging); err != nil {
+
+	// override config log level to debug if option specified
+	if opts.debug {
+		lm.SetLevel("DEBUG")
+		slog.Debug("Debug mode enabled")
+	}
+
+	if err := lm.Setup(); err != nil {
 		panic(err)
 	}
 

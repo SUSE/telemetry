@@ -93,7 +93,7 @@ func NewConfig(cfgFile string) (*Config, error) {
 		return cfg, fmt.Errorf("failed to read contents of config file '%s': %s", cfgFile, err)
 	}
 
-	slog.Info("Contents", slog.String("contents", string(contents)))
+	slog.Debug("Contents", slog.String("contents", string(contents)))
 	err = yaml.Unmarshal(contents, &cfg)
 	if err != nil {
 		return cfg, fmt.Errorf("failed to parse contents of config file '%s': %s", cfgFile, err)
