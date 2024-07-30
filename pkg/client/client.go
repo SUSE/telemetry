@@ -11,11 +11,13 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/SUSE/telemetry/pkg/config"
 	telemetrylib "github.com/SUSE/telemetry/pkg/lib"
 	"github.com/SUSE/telemetry/pkg/restapi"
 	"github.com/SUSE/telemetry/pkg/types"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 const (
@@ -33,9 +35,10 @@ type TelemetryAuth struct {
 }
 
 type TelemetryClient struct {
-	cfg       *config.Config
-	auth      TelemetryAuth
-	processor telemetrylib.TelemetryProcessor
+	cfg        *config.Config
+	auth       TelemetryAuth
+	authLoaded bool
+	processor  telemetrylib.TelemetryProcessor
 }
 
 func NewTelemetryClient(cfg *config.Config) (tc *TelemetryClient, err error) {
@@ -70,7 +73,7 @@ func checkFileReadAccessible(filePath string) bool {
 
 func ensureInstanceIdExists(instIdPath string) error {
 
-	slog.Info("ensuring existence of instIdPath", slog.String("instIdPath", instIdPath))
+	slog.Debug("ensuring existence of instIdPath", slog.String("instIdPath", instIdPath))
 	_, err := os.Stat(instIdPath)
 	if !os.IsNotExist(err) {
 		return nil
@@ -92,6 +95,71 @@ func ensureInstanceIdExists(instIdPath string) error {
 	}
 
 	return nil
+}
+
+func (tc *TelemetryClient) authParsedToken() (token *jwt.Token, err error) {
+	if !tc.authLoaded {
+		if err = tc.loadTelemetryAuth(); err != nil {
+			slog.Error(
+				"Failed to load authToken",
+				slog.String("error", err.Error()),
+			)
+			return
+		}
+	}
+
+	// only the server can validate the signing key, so parse unverified
+	token, _, err = jwt.NewParser().ParseUnverified(
+		string(tc.auth.Token), jwt.MapClaims{},
+	)
+
+	if err != nil {
+		slog.Error(
+			"Failed to parse JWT",
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+
+	return
+}
+
+func (tc *TelemetryClient) AuthIssuer() (issuer string, err error) {
+	token, err := tc.authParsedToken()
+	if err != nil {
+		return
+	}
+
+	issuer, err = token.Claims.GetIssuer()
+	if err != nil {
+		slog.Error(
+			"Filed to retrieve issuer from token claims",
+			slog.String("err", err.Error()),
+		)
+		return
+	}
+
+	return
+}
+
+func (tc *TelemetryClient) AuthExpiration() (expiration time.Time, err error) {
+	token, err := tc.authParsedToken()
+	if err != nil {
+		return
+	}
+
+	expTime, err := token.Claims.GetExpirationTime()
+	if err != nil {
+		slog.Error(
+			"Filed to retrieve expiration date from token claims",
+			slog.String("err", err.Error()),
+		)
+		return
+	}
+
+	expiration = expTime.Time
+
+	return
 }
 
 func (tc *TelemetryClient) AuthAccessible() bool {
@@ -157,7 +225,7 @@ func (tc *TelemetryClient) getInstanceId() (instId types.ClientInstanceId, err e
 func (tc *TelemetryClient) loadTelemetryAuth() (err error) {
 	authPath := tc.AuthPath()
 
-	slog.Info("Checking auth file existence", slog.String("authPath", authPath))
+	slog.Debug("Checking auth file existence", slog.String("authPath", authPath))
 	_, err = os.Stat(authPath)
 	if os.IsNotExist(err) {
 		slog.Warn(
@@ -210,6 +278,8 @@ func (tc *TelemetryClient) loadTelemetryAuth() (err error) {
 		)
 		return
 	}
+
+	tc.authLoaded = true
 
 	return
 }
@@ -283,7 +353,7 @@ func (tc *TelemetryClient) submitReport(report *telemetrylib.TelemetryReport) (e
 		return
 	}
 
-	slog.Info(
+	slog.Debug(
 		"successfully submitted report",
 		slog.String("report", report.Header.ReportId),
 		slog.String("processing", trResp.ProcessingInfo()),
@@ -392,7 +462,7 @@ func (tc *TelemetryClient) Authenticate() (err error) {
 		return
 	}
 
-	slog.Info(
+	slog.Debug(
 		"successfully authenticated",
 		slog.Int64("clientId", tc.auth.ClientId),
 	)
@@ -404,7 +474,7 @@ func (tc *TelemetryClient) Register() (err error) {
 	// get the saved TelemetryAuth, returning success if found
 	err = tc.loadTelemetryAuth()
 	if err == nil {
-		slog.Info("telemetry auth found, client already registered, skipping", slog.Int64("clientId", tc.auth.ClientId))
+		slog.Debug("telemetry auth found, client already registered, skipping", slog.Int64("clientId", tc.auth.ClientId))
 		return
 	}
 
@@ -487,6 +557,8 @@ func (tc *TelemetryClient) Register() (err error) {
 		return
 	}
 
+	tc.authLoaded = true
+
 	err = tc.saveTelemetryAuth()
 	if err != nil {
 		slog.Error(
@@ -496,7 +568,7 @@ func (tc *TelemetryClient) Register() (err error) {
 		return
 	}
 
-	slog.Info(
+	slog.Debug(
 		"successfully registered as client",
 		slog.Int64("clientId", tc.auth.ClientId),
 	)
@@ -513,7 +585,7 @@ func (tc *TelemetryClient) Generate(telemetry types.TelemetryType, content []byt
 	}
 
 	// Add telemetry data item to DataItem data store
-	slog.Info(
+	slog.Debug(
 		"Generated Telemetry",
 		slog.String("name", telemetry.String()),
 		slog.String("tags", tags.String()),
@@ -525,7 +597,7 @@ func (tc *TelemetryClient) Generate(telemetry types.TelemetryType, content []byt
 
 func (tc *TelemetryClient) CreateBundles(tags types.Tags) error {
 	// Bundle existing telemetry data items found in DataItem data store into one or more bundles in the Bundle data store
-	slog.Info("Bundle", slog.String("Tags", tags.String()))
+	slog.Debug("Bundle", slog.String("Tags", tags.String()))
 	tc.processor.GenerateBundle(tc.auth.ClientId, tc.cfg.CustomerID, tags)
 
 	return nil
@@ -533,7 +605,7 @@ func (tc *TelemetryClient) CreateBundles(tags types.Tags) error {
 
 func (tc *TelemetryClient) CreateReports(tags types.Tags) (err error) {
 	// Generate reports from available bundles
-	slog.Info("CreateReports", slog.String("Tags", tags.String()))
+	slog.Debug("CreateReports", slog.String("Tags", tags.String()))
 	tc.processor.GenerateReport(tc.auth.ClientId, tags)
 
 	return

@@ -1,4 +1,4 @@
-module github.com/SUSE/telemetry/cmd/generator
+module github.com/SUSE/telemetry/cmd/authenticator
 
 go 1.21
 
