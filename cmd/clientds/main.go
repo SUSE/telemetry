@@ -19,14 +19,13 @@ type options struct {
 	debug   bool
 }
 
-func (o options) String() string {
-	return fmt.Sprintf("config=%v, items=%v, bundles=%v, reports=%v, debug=%v", o.config, o.items, o.bundles, o.reports, o.debug)
-}
-
 var opts options
 
 func main() {
-	fmt.Printf("clientds: %s\n", opts)
+	slog.Debug(
+		"clientds",
+		slog.Any("options", opts),
+	)
 
 	if err := logging.SetupBasicLogging(opts.debug); err != nil {
 		panic(err)
@@ -41,7 +40,6 @@ func main() {
 		)
 		panic(err)
 	}
-	fmt.Printf("Config: %+v\n", cfg)
 
 	// setup logging based upon config settings
 	lm := logging.NewLogManager()
@@ -71,6 +69,9 @@ func main() {
 
 	processor := tc.Processor()
 
+	// this will be toggled to true if items, bundles or reports were found
+	foundEntries := false
+
 	if opts.items {
 		itemRows, err := processor.GetItemRows()
 		if err != nil {
@@ -87,6 +88,8 @@ func main() {
 			for i, dataItemRow := range itemRows {
 				fmt.Printf("Data Item[%d]: %q\n", i, dataItemRow.ItemId)
 			}
+
+			foundEntries = true
 		}
 	}
 
@@ -106,6 +109,8 @@ func main() {
 			for i, bundleRow := range bundleRows {
 				fmt.Printf("Bundle[%d]: %q\n", i, bundleRow.BundleId)
 			}
+
+			foundEntries = true
 		}
 	}
 
@@ -125,7 +130,13 @@ func main() {
 			for i, reportRow := range reportRows {
 				fmt.Printf("Reports[%d]: %q\n", i, reportRow.ReportId)
 			}
+
+			foundEntries = true
 		}
+	}
+
+	if !foundEntries {
+		fmt.Println("No items, bundles or reports found in client datastore")
 	}
 }
 

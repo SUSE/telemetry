@@ -354,7 +354,7 @@ func (lm *LogManager) Setup() (err error) {
 	// set our handler as the default slog handler
 	slog.SetDefault(lm.logger)
 
-	slog.Info(
+	slog.Debug(
 		"Logging initialised",
 		slog.Any("level", lm.logLevel),
 		slog.String("dest", lm.logPath),

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 
 	"github.com/SUSE/telemetry/pkg/client"
 	"github.com/SUSE/telemetry/pkg/config"
@@ -114,6 +115,13 @@ func main() {
 			)
 			panic(err)
 		}
+
+		fmt.Printf(
+			"Added telemetry data from %q as type %q with tags %s to local datastore\n",
+			filepath.Base(jsonFile),
+			opts.telemetry,
+			opts.tags,
+		)
 	}
 
 	// create one or more bundles from available data items
@@ -125,6 +133,8 @@ func main() {
 			)
 			panic(err)
 		}
+
+		fmt.Println("Created telemetry bundles from pending telemetry data items")
 	}
 
 	// create one or more reports from available bundles
@@ -136,6 +146,8 @@ func main() {
 			)
 			panic(err)
 		}
+
+		fmt.Println("Created telemetry reports from pending telemetry bundles")
 	}
 
 	// create one or more reports from available bundles and then
@@ -148,6 +160,8 @@ func main() {
 			)
 			panic(err)
 		}
+
+		fmt.Println("Submitted pending telemetry reports")
 	}
 }
 
