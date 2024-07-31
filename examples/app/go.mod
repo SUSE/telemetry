@@ -1,6 +1,6 @@
 module github.com/SUSE/telemetry/examples/app
 
-go 1.21.9
+go 1.21
 
 replace github.com/SUSE/telemetry => ../../
 
