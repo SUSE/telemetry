@@ -1,22 +1,20 @@
+ifeq ($(MAKELEVEL),0)
+
 .DEFAULT_GOAL := build
 
-.PHONY: fmt vet build clean test test-verbose
+SUBDIRS = \
+  . \
+  cmd/authenticator \
+  cmd/clientds \
+  cmd/generator \
+  examples/app
 
-fmt:
-	go fmt ./...
+TARGETS = fmt vet build build-only clean test test-clean test-verbose tidy
 
-vet:
-	go vet ./...
+.PHONY: $(TARGETS)
 
-build: vet
-	go build ./...
-
-clean:
-	go clean
-	go clean -testcache
-
-test: build
-	go clean -testcache && go test -cover ./...
-
-test-verbose: build
-	go clean -testcache && go test -v -cover ./...
+$(TARGETS):
+	$(foreach subdir, $(SUBDIRS), $(MAKE) -C $(subdir) $@;)
+else
+include Makefile.golang
+endif
