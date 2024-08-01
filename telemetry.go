@@ -57,6 +57,9 @@ func Generate(telemetry types.TelemetryType, class TelemetryClass, content []byt
 		return err
 	}
 
+	// check that the telemetry content is valid
+	blob := types.NewTelemetryBlob(content)
+
 	// attempt to load the default config file
 	cfg, err := config.NewConfig(client.CONFIG_PATH)
 	if err != nil {
@@ -113,7 +116,7 @@ func Generate(telemetry types.TelemetryType, class TelemetryClass, content []byt
 	}
 
 	// generate the telemetry, storing it in the local data store
-	err = tc.Generate(telemetry, content, tags)
+	err = tc.Generate(telemetry, blob, tags)
 	if err != nil {
 		slog.Warn(
 			"Failed to generate telemetry",
