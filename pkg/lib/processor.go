@@ -7,7 +7,6 @@ import (
 
 	"github.com/SUSE/telemetry/pkg/config"
 	"github.com/SUSE/telemetry/pkg/types"
-	"github.com/SUSE/telemetry/pkg/utils"
 )
 
 type TelemetryProcessor interface {
@@ -16,7 +15,7 @@ type TelemetryProcessor interface {
 	// Add telemetry data - a method to process jsonData as a byte[]
 	AddData(
 		telemetry types.TelemetryType,
-		content []byte,
+		content *types.TelemetryBlob,
 		tags types.Tags,
 	) (err error)
 
@@ -106,14 +105,10 @@ func NewTelemetryProcessor(cfg *config.DBConfig) (TelemetryProcessor, error) {
 	return &p, err
 }
 
-func (p *TelemetryProcessorImpl) AddData(telemetry types.TelemetryType, marshaledData []byte, tags types.Tags) (err error) {
-	dataItemRow, err := NewTelemetryDataItemRow(telemetry, tags, marshaledData)
-	if err != nil {
-		return fmt.Errorf("unable to create telemetry data: %s", err.Error())
-	}
+func (p *TelemetryProcessorImpl) AddData(telemetry types.TelemetryType, marshaledData *types.TelemetryBlob, tags types.Tags) (err error) {
+	dataItemRow := NewTelemetryDataItemRow(telemetry, tags, marshaledData)
 
-	err = dataItemRow.Insert(p.t.storer.Conn)
-	return
+	return dataItemRow.Insert(p.t.storer.Conn)
 }
 
 func (p *TelemetryProcessorImpl) GenerateBundle(clientId int64, customerId string, tags types.Tags) (bundleRow *TelemetryBundleRow, err error) {
@@ -250,11 +245,11 @@ func (p *TelemetryProcessorImpl) ToItem(itemRow *TelemetryDataItemRow) (item Tel
 		Checksum: itemRow.ItemChecksum,
 	}
 
-	data, err := utils.DeserializeMap(string(itemRow.ItemData))
+	//data, err := utils.DeserializeMap(string(itemRow.ItemData))
 
 	item = TelemetryDataItem{
 		Header:        itemHeader,
-		TelemetryData: data,
+		TelemetryData: itemRow.ItemData,
 		Footer:        itemFooter,
 	}
 

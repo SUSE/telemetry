@@ -576,11 +576,22 @@ func (tc *TelemetryClient) Register() (err error) {
 	return nil
 }
 
-func (tc *TelemetryClient) Generate(telemetry types.TelemetryType, content []byte, tags types.Tags) error {
-	// Enforce size limits
-	tdl := telemetrylib.NewTelemetryDataLimits()
-	err := tdl.CheckLimits(content)
-	if err != nil {
+func (tc *TelemetryClient) Generate(telemetry types.TelemetryType, content *types.TelemetryBlob, tags types.Tags) error {
+	// Enforce valid versioned JSON object
+	if err := content.Valid(); err != nil {
+		slog.Debug(
+			"Supplied content is not a versioned JSON object",
+			slog.String("error", err.Error()),
+		)
+		return err
+	}
+
+	// Enforce content size limits
+	if err := content.CheckLimits(); err != nil {
+		slog.Debug(
+			"Supplied JSON blob failed limits check",
+			slog.String("error", err.Error()),
+		)
 		return err
 	}
 
@@ -589,7 +600,7 @@ func (tc *TelemetryClient) Generate(telemetry types.TelemetryType, content []byt
 		"Generated Telemetry",
 		slog.String("name", telemetry.String()),
 		slog.String("tags", tags.String()),
-		slog.String("content", string(content)),
+		slog.String("content", content.String()),
 	)
 
 	return tc.processor.AddData(telemetry, content, tags)

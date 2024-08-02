@@ -2,7 +2,7 @@ package telemetrylib
 
 import (
 	"database/sql"
-	"fmt"
+	"encoding/json"
 	"log/slog"
 	"strings"
 
@@ -13,17 +13,12 @@ import (
 
 type TelemetryDataItem struct {
 	Header        TelemetryDataItemHeader `json:"header"  validate:"required"`
-	TelemetryData map[string]interface{}  `json:"telemetryData"  validate:"required,dive"`
+	TelemetryData json.RawMessage         `json:"telemetryData"  validate:"required,dive"`
 	Footer        TelemetryDataItemFooter `json:"footer" validate:"required"`
 }
 
 // func NewTelemetryDataItem(telemetry types.TelemetryType, tags types.Tags, data map[string]interface{}) *TelemetryDataItem {
-func NewTelemetryDataItem(telemetry types.TelemetryType, tags types.Tags, marshaledData []byte) (*TelemetryDataItem, error) {
-	data, err := utils.DeserializeMap(string(marshaledData))
-	if err != nil {
-		return nil, fmt.Errorf("unable to unmarshal JSON: %s", err.Error())
-	}
-
+func NewTelemetryDataItem(telemetry types.TelemetryType, tags types.Tags, content *types.TelemetryBlob) *TelemetryDataItem {
 	tdi := new(TelemetryDataItem)
 
 	// fill in header fields
@@ -35,12 +30,12 @@ func NewTelemetryDataItem(telemetry types.TelemetryType, tags types.Tags, marsha
 	}
 
 	// fill in body
-	tdi.TelemetryData = data
+	tdi.TelemetryData = content.Bytes()
 
 	// fill in footer
 	tdi.Footer.Checksum = "ichecksum" // TODO
 
-	return tdi, nil
+	return tdi
 }
 
 type TelemetryDataItemHeader struct {
@@ -84,22 +79,19 @@ type TelemetryDataItemRow struct {
 	BundleId        sql.NullInt64
 }
 
-func NewTelemetryDataItemRow(telemetry types.TelemetryType, tags types.Tags, marshaledData []byte) (*TelemetryDataItemRow, error) {
+func NewTelemetryDataItemRow(telemetry types.TelemetryType, tags types.Tags, content *types.TelemetryBlob) *TelemetryDataItemRow {
 
-	item, err := NewTelemetryDataItem(telemetry, tags, marshaledData)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create a new telemetry data item: %s", err.Error())
-	}
+	item := NewTelemetryDataItem(telemetry, tags, content)
 
 	dataItemRow := new(TelemetryDataItemRow)
 	dataItemRow.ItemId = item.Header.TelemetryId
 	dataItemRow.ItemType = item.Header.TelemetryType
 	dataItemRow.ItemTimestamp = item.Header.TelemetryTimeStamp
 	dataItemRow.ItemAnnotations = strings.Join(item.Header.TelemetryAnnotations, ",")
-	dataItemRow.ItemData = marshaledData
+	dataItemRow.ItemData = content.Bytes()
 	dataItemRow.ItemChecksum = item.Footer.Checksum
 
-	return dataItemRow, nil
+	return dataItemRow
 
 }
 

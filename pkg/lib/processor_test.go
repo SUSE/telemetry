@@ -3,7 +3,6 @@ package telemetrylib
 import (
 	"fmt"
 	"log/slog"
-	"strings"
 	"testing"
 
 	"github.com/SUSE/telemetry/pkg/config"
@@ -75,18 +74,16 @@ func (t *TelemetryProcessorTestSuite) AfterTest() {
 func (t *TelemetryProcessorTestSuite) TestAddTelemetryDataItem() {
 	telemetryType := types.TelemetryType("SLE-SERVER-Test")
 	tags := types.Tags{types.Tag("key1=value1"), types.Tag("key2")}
-	payload := `
-       {
-               "ItemA": 1,
-               "ItemB": "b",
-               "ItemC": "c"
-       }
-       `
+	payload := types.NewTelemetryBlob([]byte(`{
+		"ItemA": 1,
+		"ItemB": "b",
+		"ItemC": "c"
+	}`))
 
 	// test the fileEnv.yaml based datastores
 	processor := t.defaultEnv.telemetryprocessor
 
-	err := processor.AddData(telemetryType, []byte(payload), tags)
+	err := processor.AddData(telemetryType, payload, tags)
 	if err != nil {
 		t.Fail("Test failed to add telemetry data item to datastore")
 	}
@@ -104,14 +101,12 @@ func (t *TelemetryProcessorTestSuite) TestCreateBundle() {
 
 	tags := types.Tags{types.Tag("key1=value1"), types.Tag("key2")}
 
-	payload := `
-	{
-			"field1": "example_data",
-			"field2": null,
-			"field3": [1, 2, 3]
-	}
-	`
-	err := telemetryprocessor.AddData(telemetryType, []byte(payload), tags)
+	payload := types.NewTelemetryBlob([]byte(`{
+		"field1": "example_data",
+		"field2": null,
+		"field3": [1, 2, 3]
+	}`))
+	err := telemetryprocessor.AddData(telemetryType, payload, tags)
 
 	if err != nil {
 		t.Fail("Test failed to add telemetry data item")
@@ -121,14 +116,12 @@ func (t *TelemetryProcessorTestSuite) TestCreateBundle() {
 	telemetryType = types.TelemetryType("SLE-SERVER-Pkg")
 	newtags := types.Tags{types.Tag("key1=value1"), types.Tag("key2")}
 
-	payload = `
-	{
+	payload = types.NewTelemetryBlob([]byte(`{
 		"ItemA": 1,
 		"ItemB": "b"
-	}
-	`
+	}`))
 
-	err = telemetryprocessor.AddData(telemetryType, []byte(payload), newtags)
+	err = telemetryprocessor.AddData(telemetryType, payload, newtags)
 
 	if err != nil {
 		t.Fail("Test failed to add telemetry data item")
@@ -331,30 +324,6 @@ func (t *TelemetryProcessorTestSuite) TestReport() {
 
 }
 
-func (t *TelemetryProcessorTestSuite) TestAddTelemetryDataItemInvalidPayload() {
-
-	payload := `
-	{
-			"field1": "example_data",
-			"field2": null
-			"field3": [1, 2, 3]
-	}
-	`
-	telemetryType := types.TelemetryType("SLE-SERVER-Pkg")
-	var tags types.Tags
-
-	processor := t.defaultEnv.telemetryprocessor
-	err := processor.AddData(telemetryType, []byte(payload), tags)
-
-	expectedmsg := "unable to unmarshal JSON"
-
-	// Check if the string contains the substring
-	if !strings.Contains(err.Error(), expectedmsg) {
-		t.T().Errorf("String '%s' does not contain substring '%s'", err.Error(), expectedmsg)
-	}
-
-}
-
 func addDataItems(totalItems int, processor TelemetryProcessor) error {
 
 	telemetryType := types.TelemetryType("SLE-SERVER-Test")
@@ -372,8 +341,8 @@ func addDataItems(totalItems int, processor TelemetryProcessor) error {
 		`
 	numItems := 1
 	for numItems <= totalItems {
-		formattedJSON := fmt.Sprintf(payload, utils.GenerateRandomString(3))
-		err := processor.AddData(telemetryType, []byte(formattedJSON), tags)
+		formattedJSON := types.NewTelemetryBlob([]byte(fmt.Sprintf(payload, utils.GenerateRandomString(3))))
+		err := processor.AddData(telemetryType, formattedJSON, tags)
 		if err != nil {
 			slog.Error(
 				"Failed to add the item",
