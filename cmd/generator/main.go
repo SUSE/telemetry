@@ -106,7 +106,7 @@ func main() {
 			panic(err)
 		}
 
-		err = tc.Generate(opts.telemetry, jsonContent, opts.tags)
+		err = tc.Generate(opts.telemetry, types.NewTelemetryBlob(jsonContent), opts.tags)
 		if err != nil {
 			slog.Error(
 				"Error generating telemetry data item",
