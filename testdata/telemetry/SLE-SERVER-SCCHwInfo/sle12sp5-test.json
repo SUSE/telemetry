@@ -1,4 +1,5 @@
 {
+  "version": 1,
   "hostname": "sle12sp5-test",
   "distro_target": "sle-12-x86_64",
   "hwinfo": {
