@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/SUSE/telemetry/pkg/config"
@@ -222,14 +223,30 @@ func (tc *TelemetryClient) getInstanceId() (instId types.ClientInstanceId, err e
 	return
 }
 
+func (tc *TelemetryClient) deleteTelemetryAuth() (err error) {
+	if err = os.Remove(tc.AuthPath()); err != nil {
+		slog.Error(
+			"Failed to delete existing client creds",
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+
+	// clear previous in memory auth settings
+	tc.auth = TelemetryAuth{}
+	tc.authLoaded = false
+
+	return
+}
+
 func (tc *TelemetryClient) loadTelemetryAuth() (err error) {
 	authPath := tc.AuthPath()
 
 	slog.Debug("Checking auth file existence", slog.String("authPath", authPath))
 	_, err = os.Stat(authPath)
 	if os.IsNotExist(err) {
-		slog.Warn(
-			"unable to find auth file",
+		slog.Debug(
+			"Unable to find auth file",
 			slog.String("authPath", authPath),
 			slog.String("err", err.Error()),
 		)
@@ -305,7 +322,249 @@ func (tc *TelemetryClient) saveTelemetryAuth() (err error) {
 	return
 }
 
+func errClientNotAuthorized() error {
+	return errors.New("client not authorized")
+}
+
+func errRegistrationRequired() error {
+	return errors.New("client registration required")
+}
+
+func errAuthenticationRequired() error {
+	return errors.New("client authentication required")
+}
+
+var (
+	ErrClientNotAuthorized    = errClientNotAuthorized()    // general authorization failure
+	ErrRegistrationRequired   = errRegistrationRequired()   // need to (re-)register
+	ErrAuthenticationRequired = errAuthenticationRequired() // need to (re-authenticate)
+)
+
+func parseQuotedAssignment(assignment string) (field, value string, found bool) {
+	// split assignment on '='
+	field, value, found = strings.Cut(assignment, "=")
+	if found {
+		// if split was successful string quote and inner wrapping spaces
+		value = strings.TrimSpace(strings.Trim(value, `"'`))
+	}
+	return
+}
+
+func unauthorizedError(resp *http.Response) (err error) {
+	// default to general authorization failure
+	err = ErrClientNotAuthorized
+
+	// retrieve the WWW-Authenticate response header
+	hdrWwwAuthenticate, found := resp.Header[http.CanonicalHeaderKey("WWW-Authenticate")]
+	if !found {
+		slog.Error(
+			"Unauthorized response lacks WWW-Authenticate header",
+			slog.Int("StatusCode", resp.StatusCode),
+		)
+		return
+	}
+
+	// joing possible multiple header values with ","
+	wwwAuthenticate := strings.Join(hdrWwwAuthenticate, ",")
+
+	if wwwAuthenticate == "" {
+		slog.Error(
+			"Unauthorized response WWW-Authenticate header empty",
+			slog.Int("StatusCode", resp.StatusCode),
+			slog.String("WWW-Authenticate", wwwAuthenticate),
+		)
+		return
+	}
+
+	// the WWW-Authenticate header should have the following format
+	//   <challenge> realm="<realm>" scope="<scope>"
+	// where:
+	//   <challenge> is "Bearer"
+	//   <realm> is "suse-telemetry-service"
+	//   <scope> is either "authenticate" or "register"
+	fields := strings.Fields(wwwAuthenticate)
+
+	// validate the WWW-Authenticate header value
+	if len(fields) < 3 {
+		slog.Error(
+			"Unauthorized response WWW-Authenticate header invalid format",
+			slog.Int("StatusCode", resp.StatusCode),
+			slog.String("WWW-Authenticate", wwwAuthenticate),
+		)
+		return
+	}
+
+	// first field specifies the challenge, value validated below
+	challenge := fields[0]
+
+	// second field should be realm="<realm>", value validated below
+	fieldName, realm, found := parseQuotedAssignment(fields[1])
+	if !found || (fieldName != "realm") {
+		slog.Error(
+			"Unauthorized response WWW-Authenticate header missing realm",
+			slog.Int("StatusCode", resp.StatusCode),
+			slog.String("WWW-Authenticate", wwwAuthenticate),
+		)
+		return
+	}
+
+	// third field should be scope="<scope>", value validated below
+	fieldName, scope, found := parseQuotedAssignment(fields[2])
+	if !found || (fieldName != "scope") {
+		slog.Error(
+			"Unauthorized response WWW-Authenticate header missing scope",
+			slog.Int("StatusCode", resp.StatusCode),
+			slog.String("WWW-Authenticate", wwwAuthenticate),
+		)
+		return
+	}
+
+	// only Bearer challenge type is accepted
+	if challenge != "Bearer" {
+		slog.Error(
+			"Unauthorized response WWW-Authenticate header invalid challenge",
+			slog.Int("StatusCode", resp.StatusCode),
+			slog.String("WWW-Authenticate", wwwAuthenticate),
+			slog.String("challenge", challenge),
+		)
+		return
+	}
+
+	// only suse-telemetry-service realm type is accepted
+	switch realm {
+	case "suse-telemetry-service":
+		// valid
+	default:
+		slog.Error(
+			"Unauthorized response WWW-Authenticate header invalid realm",
+			slog.Int("StatusCode", resp.StatusCode),
+			slog.String("WWW-Authenticate", wwwAuthenticate),
+			slog.String("realm", realm),
+		)
+		return
+	}
+
+	// only authenticate and register scope types are accepted
+	switch scope {
+	case "authenticate":
+		slog.Debug("Client (re-)authentication required")
+		err = ErrAuthenticationRequired
+	case "register":
+		slog.Debug("Client (re-)registration required")
+		err = ErrRegistrationRequired
+	default:
+		slog.Error(
+			"Unauthorized response WWW-Authenticate header invalid scope",
+			slog.Int("StatusCode", resp.StatusCode),
+			slog.String("WWW-Authenticate", wwwAuthenticate),
+			slog.String("scope", scope),
+		)
+	}
+
+	return
+}
+
+func (tc *TelemetryClient) submitReportRetry(
+	report *telemetrylib.TelemetryReport,
+	maxTries int,
+	delay time.Duration,
+) (err error) {
+	// retry at most MaxTries times
+	for retry := maxTries; retry > 0; retry -= 1 {
+
+		// handle panic() calls as well as return
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					switch rType := r.(type) {
+					case string:
+						err = errors.New(rType)
+					case error:
+						err = rType
+					default:
+						err = fmt.Errorf("unexpected recovery type: %s", rType)
+					}
+				}
+			}()
+			err = tc.submitReportInternal(report)
+		}()
+
+		if err == nil {
+			break
+		}
+
+		switch {
+		// check if we need to register again?
+		case errors.Is(err, ErrRegistrationRequired):
+			slog.Info(
+				"Telemetry Client Registration Required",
+				slog.String("error", err.Error()),
+			)
+
+			// force a (re-)registration by deleting any existing
+			// client creds bundle
+			err = tc.deleteTelemetryAuth()
+			if err != nil {
+				slog.Warn(
+					"Failed to delete existing telemetry auth bundle",
+					slog.String("error", err.Error()),
+				)
+			}
+
+			// register the telemetry client
+			err = tc.Register()
+			if err != nil {
+				// if registration failed, for now don't re-try
+				return
+			}
+
+			slog.Info(
+				"Telemetry Client Registration Successful",
+			)
+
+		// check if we need to authenticate again?
+		case errors.Is(err, ErrAuthenticationRequired):
+			slog.Info(
+				"Telemetry Client Authentication Required",
+				slog.String("error", err.Error()),
+			)
+
+			// attempt to (re-)autenticate
+			err = tc.Authenticate()
+			if err != nil {
+				// if authentication failed, for now don't re-try
+				return
+			}
+
+			slog.Info(
+				"Telemetry Client Authentication Successful",
+			)
+
+		// TODO: handle server busy backoff and retry appropriately
+
+		default:
+			slog.Debug(
+				"Unhandled error",
+				slog.String("error", err.Error()),
+			)
+		}
+
+		// sleep between retries
+		if retry > 0 {
+			time.Sleep(delay)
+		}
+
+	}
+	return
+}
+
 func (tc *TelemetryClient) submitReport(report *telemetrylib.TelemetryReport) (err error) {
+	// TODO: make delay configurable, or possibly supplied by the request response
+	err = tc.submitReportRetry(report, 3, time.Duration(500*time.Millisecond))
+	return
+}
+
+func (tc *TelemetryClient) submitReportInternal(report *telemetrylib.TelemetryReport) (err error) {
 	// submit a telemetry report
 	var trReq restapi.TelemetryReportRequest
 	trReq.TelemetryReport = *report
@@ -337,12 +596,25 @@ func (tc *TelemetryClient) submitReport(report *telemetrylib.TelemetryReport) (e
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		slog.Error("failed to read telemetry report response body", slog.String("err", err.Error()))
+		slog.Error(
+			"failed to read telemetry report response body",
+			slog.Int("StatusCode", resp.StatusCode),
+			slog.String("error", err.Error()),
+		)
 		return
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		slog.Error("failed to submit report", slog.String("respBody", string(respBody)))
+	switch resp.StatusCode {
+	case http.StatusOK:
+		// nothing to do
+	case http.StatusUnauthorized:
+		return unauthorizedError(resp)
+	default:
+		slog.Error(
+			"failed to submit report",
+			slog.Int("StatusCode", resp.StatusCode),
+			slog.String("respBody", string(respBody)),
+		)
 		return
 	}
 
@@ -641,11 +913,11 @@ func (tc *TelemetryClient) Submit() (err error) {
 
 		report, err := tc.processor.ToReport(reportRow)
 		if err != nil {
-			return fmt.Errorf("failed to convert report %q: %s", reportRow.ReportId, err.Error())
+			return fmt.Errorf("failed to convert report %q: %w", reportRow.ReportId, err)
 		}
 
 		if err := tc.submitReport(&report); err != nil {
-			return fmt.Errorf("failed to submit report %q: %s", report.Header.ReportId, err.Error())
+			return fmt.Errorf("failed to submit report %q: %w", report.Header.ReportId, err)
 		}
 
 		// delete the successfully submitted report
