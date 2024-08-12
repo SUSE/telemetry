@@ -1,6 +1,6 @@
 # Authorization Header
 The telemetry server expects telemetry clients to provide a valid
-`Authorization` header when submiting telemetry reports via the
+`Authorization` header when submitting telemetry reports via the
 [/report](../requests/report.md) request.
 
 ## Format of Authorization Header

@@ -11,8 +11,8 @@ seperated by `-` characters, as follows:
 ```
 
 Where:
-* \<product_family\> identifies the product family that the telemetry is assocuated with
-* \<product_stream\> identifies the relevent product stream within that product family
+* \<product_family\> identifies the product family that the telemetry is associated with
+* \<product_stream\> identifies the relevant product stream within that product family
 * \<telemetry_subtype\> identifies the specific telemetry subtype being reported
 
 ***NOTE***: The \<telemetry_subtype\> value can contain additional `-` characters if desired.

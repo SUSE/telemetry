@@ -17,7 +17,7 @@ A telemetry client is expected to support the following workflow:
 For a telemetry client to be able to register with an upstream telemetry
 server, it will need to generate a clientInstanceId value, which is used
 to uniquely identify a given client with the upstream server, and should
-store this value in a secure fashion so that it can accessed later when
+store this value in a secure fashion so that it can be accessed later when
 (re-)authenticating with the upstream telemetry server.
 
 When a telemetry client registers with the upstream telemetry server,
