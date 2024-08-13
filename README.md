@@ -4,6 +4,9 @@ SUSE Telemetry Client Library and associated client CLI tools
 See [examples](examples/) directory for examples of how to use the
 Telemetry Client library.
 
+See the [doc][doc/] directory for details on the telemetry server
+REST API and the fundamental concepts of the telemetry service.
+
 # What's available
 
 ## cmd/generator
