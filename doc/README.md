@@ -5,4 +5,6 @@ The following topics are documented:
 * [Telemetry Types](telemetrytype.md)
 * [Telemetry Tags](telemetrytag.md)
 * [Telemetry Timestamps](telemetrytimestamp.md)
+* [Telemetry Client Ids](telemetryclientid.md)
+* [Telemetry Relay](telemetryrelay.md)
 * [Telemetry Client REST API](api/)
