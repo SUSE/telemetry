@@ -27,9 +27,9 @@ const (
 )
 
 type TelemetryAuth struct {
-	ClientId  int64                    `json:"clientId"`
-	Token     types.TelemetryAuthToken `json:"token"`
-	IssueDate types.TelemetryTimeStamp `json:"issueDate"`
+	ClientId         int64                    `json:"clientId"`
+	Token            types.TelemetryAuthToken `json:"token"`
+	RegistrationDate types.TelemetryTimeStamp `json:"registrationDate"`
 }
 
 type TelemetryClient struct {

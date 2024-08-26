@@ -29,7 +29,7 @@ a set of client credentials as follows:
 | ---- | ---- | ----------- |
 | clientId | integer($int64) | ID used to identify the client to the server |
 | authToken | string($([JWT](https://jwt.io/)) | A JSON Web Token ([JWT](https://jwt.io/)) authorization token |
-| issueDate | string($[rfc3339nano](https://pkg.go.dev/time#pkg-constants)) | The client UTC registration timestamp expressed in<br>[RFC3339nano](https://pkg.go.dev/time#pkg-constants) format |
+| registrationDate | string($[rfc3339nano](https://pkg.go.dev/time#pkg-constants)) | The client UTC registration timestamp expressed in<br>[RFC3339nano](https://pkg.go.dev/time#pkg-constants) format |
 
 ***NOTE***: The telemetry client is responsible for storing these client
 credentials in a persistent fashion so that they can subsequently be

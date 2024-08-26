@@ -89,11 +89,11 @@ func (tc *TelemetryClient) Register() (err error) {
 
 	tc.auth.ClientId = crResp.ClientId
 	tc.auth.Token = types.TelemetryAuthToken(crResp.AuthToken)
-	tc.auth.IssueDate, err = types.TimeStampFromString(crResp.IssueDate)
+	tc.auth.RegistrationDate, err = types.TimeStampFromString(crResp.RegistrationDate)
 	if err != nil {
 		slog.Error(
-			"failed to parse issueDate as a timestamp",
-			slog.String("issueDate", crResp.IssueDate),
+			"failed to parse registrationDate as a timestamp",
+			slog.String("registrationDate", crResp.RegistrationDate),
 			slog.String("err", err.Error()),
 		)
 		return

@@ -25,9 +25,9 @@ func (c *ClientRegistrationRequest) String() string {
 
 // ClientRegistrationResponse is the response payload body from the server
 type ClientRegistrationResponse struct {
-	ClientId  int64  `json:"clientId"`
-	AuthToken string `json:"authToken"`
-	IssueDate string `json:"issueDate"`
+	ClientId         int64  `json:"clientId"`
+	AuthToken        string `json:"authToken"`
+	RegistrationDate string `json:"registrationDate"`
 }
 
 func (c *ClientRegistrationResponse) String() string {
