@@ -1,0 +1,27 @@
+version: '3.9'
+
+services:
+  client1:
+    build:
+      context: ../../
+      dockerfile: ./cmd/faker/Dockerfile
+      args:
+        FILES_COUNT: 30
+        CUSTOMER_ID: 1
+    container_name: client1
+  client2:
+    build:
+      context: ../../
+      dockerfile: ./cmd/faker/Dockerfile
+      args:
+        FILES_COUNT: 30
+        CUSTOMER_ID: 2
+    container_name: client2
+  client3:
+    build:
+      context: ../../
+      dockerfile: ./cmd/faker/Dockerfile
+      args:
+        FILES_COUNT: 30
+        CUSTOMER_ID: 3
+    container_name: client3
