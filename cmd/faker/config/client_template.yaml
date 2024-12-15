@@ -1,6 +1,6 @@
-telemetry_base_url: "__SERVER_URL__"
+telemetry_base_url: {{.SERVER_URL}}
 enabled: true
-customer_id: "__CUSTOMER_ID__"
+customer_id: {{.CUSTOMER_ID}}
 tags: []
 datastores:
   driver: sqlite3

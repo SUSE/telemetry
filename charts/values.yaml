@@ -1,0 +1,16 @@
+replicaCount: 3
+
+image:
+  repository: gbuenodevsuse/telemetry-client
+  tag: test2
+  pullPolicy: Always
+
+env:
+  serverURL: "http://telemetry-server:9999/telemetry"
+  telemetryPath: /app/cmd/faker/fake_telemetry_data
+
+# Specific file counts for each pod; aligned with replicaCount
+replicaFileCounts:
+- 10
+- 10
+- 10

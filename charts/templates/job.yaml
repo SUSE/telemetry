@@ -1,0 +1,26 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: telemetry-client
+  labels:
+    app: telemetry-client
+spec:
+  completions: {{ .Values.replicaCount }}
+  parallelism: {{ .Values.replicaCount }}
+  template:
+    metadata:
+      labels:
+        app: telemetry-client
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: telemetry-client
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: SERVER_URL
+              value: "{{ .Values.env.serverURL }}"
+            - name: TELEMETRY_PATH
+              value: "{{ .Values.env.telemetryPath }}"
+            - name: FILE_COUNT
+              value: "{{ index .Values.replicaFileCounts (int .TaskIndex) }}"
