@@ -1,4 +1,5 @@
-replicaCount: 3
+replicas: 1
+replicasFilesCount: 10
 
 image:
   repository: gbuenodevsuse/telemetry-client
@@ -8,9 +9,3 @@ image:
 env:
   serverURL: "http://telemetry-server:9999/telemetry"
   telemetryPath: /app/cmd/faker/fake_telemetry_data
-
-# Specific file counts for each pod; aligned with replicaCount
-replicaFileCounts:
-- 10
-- 10
-- 10

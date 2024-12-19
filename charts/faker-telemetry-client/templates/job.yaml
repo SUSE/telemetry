@@ -1,16 +1,16 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: telemetry-client
+  name: faker-telemetry-client
   labels:
-    app: telemetry-client
+    app: faker-telemetry-client
 spec:
-  completions: {{ .Values.replicaCount }}
-  parallelism: {{ .Values.replicaCount }}
+  parallelism: {{ .Values.replicas }}
+  completions: {{ .Values.replicas }}
   template:
     metadata:
       labels:
-        app: telemetry-client
+        app: faker-telemetry-client
     spec:
       restartPolicy: Never
       containers:
@@ -23,4 +23,4 @@ spec:
             - name: TELEMETRY_PATH
               value: "{{ .Values.env.telemetryPath }}"
             - name: FILE_COUNT
-              value: "{{ index .Values.replicaFileCounts (int .TaskIndex) }}"
+              value: "{{ .Values.replicasFilesCount }}"
