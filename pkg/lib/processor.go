@@ -21,14 +21,14 @@ type TelemetryProcessor interface {
 
 	// Generate telemetry bundle
 	GenerateBundle(
-		clientId int64,
+		clientId string,
 		customerId string,
 		tags types.Tags,
 	) (bundleRow *TelemetryBundleRow, err error)
 
 	// Generate telemetry report
 	GenerateReport(
-		clientId int64,
+		clientId string,
 		tags types.Tags,
 	) (reportRow *TelemetryReportRow, err error)
 
@@ -111,7 +111,7 @@ func (p *TelemetryProcessorImpl) AddData(telemetry types.TelemetryType, marshale
 	return dataItemRow.Insert(p.t.storer.Conn)
 }
 
-func (p *TelemetryProcessorImpl) GenerateBundle(clientId int64, customerId string, tags types.Tags) (bundleRow *TelemetryBundleRow, err error) {
+func (p *TelemetryProcessorImpl) GenerateBundle(clientId string, customerId string, tags types.Tags) (bundleRow *TelemetryBundleRow, err error) {
 
 	bundleRow, err = NewTelemetryBundleRow(clientId, customerId, tags)
 	if err != nil {
@@ -132,7 +132,7 @@ func (p *TelemetryProcessorImpl) GenerateBundle(clientId int64, customerId strin
 	return
 }
 
-func (p *TelemetryProcessorImpl) GenerateReport(clientId int64, tags types.Tags) (reportRow *TelemetryReportRow, err error) {
+func (p *TelemetryProcessorImpl) GenerateReport(clientId string, tags types.Tags) (reportRow *TelemetryReportRow, err error) {
 
 	reportRow, err = NewTelemetryReportRow(clientId, tags)
 	if err != nil {

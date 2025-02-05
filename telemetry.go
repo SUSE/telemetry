@@ -142,7 +142,7 @@ const (
 	CLIENT_DISABLED
 	CLIENT_MISCONFIGURED
 	CLIENT_DATASTORE_ACCESSIBLE
-	CLIENT_INSTANCE_ID_ACCESSIBLE
+	CLIENT_REGISTRATION_ACCESSIBLE
 	CLIENT_REGISTERED
 )
 
@@ -158,8 +158,8 @@ func (cs *ClientStatus) String() string {
 		return "MISCONFIGURED"
 	case CLIENT_DATASTORE_ACCESSIBLE:
 		return "DATASTORE_ACCESSIBLE"
-	case CLIENT_INSTANCE_ID_ACCESSIBLE:
-		return "INSTANCE_ID_ACCESSIBLE"
+	case CLIENT_REGISTRATION_ACCESSIBLE:
+		return "REGISTRATION_ACCESSIBLE"
 	case CLIENT_REGISTERED:
 		return "REGISTERED"
 	}
@@ -205,13 +205,13 @@ func Status() (status ClientStatus) {
 	status = CLIENT_DATASTORE_ACCESSIBLE
 
 	// check that an instance id is available
-	if !tc.InstanceIdAccessible() {
-		slog.Warn("Telemetry client instance id has not been setup", slog.String("path", tc.InstIdPath()))
+	if !tc.RegistrationAccessible() {
+		slog.Warn("Telemetry client registration has not been setup", slog.String("path", tc.RegistrationPath()))
 		return
 	}
 
 	// update status to indicate client has instance id
-	status = CLIENT_INSTANCE_ID_ACCESSIBLE
+	status = CLIENT_REGISTRATION_ACCESSIBLE
 
 	// check that we have obtained a telemetry auth token
 	if !tc.AuthAccessible() {

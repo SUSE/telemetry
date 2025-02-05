@@ -8,8 +8,8 @@ The TelemetryBundle data structure consists of the following sections:
   * bundleTimeStamp - the UTC timestamp for when the bundle was generated,
     formatted in [RFC3339nano](../../telemetrytimestamp.md) format
   * bundleClientId - the clientId of the telemetry client generating this
-    bundle, as specified in the credentials returned when the telemetry
-    client successfully registered with the upstream telemetry server.
+    bundle, as specified in the registraion used to successfully register
+    the client with the upstream telemetry server.
   * bundleCustomerId - a string value specify the customer identifier,
     if any, associated with the telemetry client
   * bundleAnnotations - a possibly empty list of
@@ -25,7 +25,7 @@ in a bundle must originate from the same telemetry client.
 	header {
     bundleId          string
     bundleTimeStamp   string($rfc3339nano)
-    bundleClientId    integer($int64)
+    bundleClientId    string
     bundleCustomerId  string
     bundleAnnotations [
       string...

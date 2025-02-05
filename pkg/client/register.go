@@ -16,19 +16,19 @@ func (tc *TelemetryClient) Register() (err error) {
 	// get the saved TelemetryAuth, returning success if found
 	err = tc.loadTelemetryAuth()
 	if err == nil {
-		slog.Debug("telemetry auth found, client already registered, skipping", slog.Int64("clientId", tc.auth.ClientId))
+		slog.Debug("telemetry auth found, client already registered, skipping", slog.Int64("registrationId", tc.auth.RegistrationId))
 		return
 	}
 
-	// get the instanceId, failing if it can't be retrieved
-	instId, err := tc.getInstanceId()
+	// get the registration, failing if it can't be retrieved
+	reg, err := tc.getRegistration()
 	if err != nil {
 		return
 	}
 
 	// register the system as a client
 	var crReq restapi.ClientRegistrationRequest
-	crReq.ClientInstanceId = instId
+	crReq.ClientRegistration = reg
 	reqBodyJSON, err := json.Marshal(&crReq)
 	if err != nil {
 		slog.Error(
@@ -71,7 +71,7 @@ func (tc *TelemetryClient) Register() (err error) {
 		return
 	}
 
-	// TODO: Handle http.StatusConflict (409) as needing to regenerate instId
+	// TODO: Handle http.StatusConflict (409) as needing to regenerate registration
 	if resp.StatusCode != http.StatusOK {
 		err = fmt.Errorf("client registration failed: %s", string(respBody))
 		return
@@ -87,7 +87,7 @@ func (tc *TelemetryClient) Register() (err error) {
 		return
 	}
 
-	tc.auth.ClientId = crResp.ClientId
+	tc.auth.RegistrationId = crResp.RegistrationId
 	tc.auth.Token = types.TelemetryAuthToken(crResp.AuthToken)
 	tc.auth.RegistrationDate, err = types.TimeStampFromString(crResp.RegistrationDate)
 	if err != nil {
@@ -112,7 +112,7 @@ func (tc *TelemetryClient) Register() (err error) {
 
 	slog.Debug(
 		"successfully registered as client",
-		slog.Int64("clientId", tc.auth.ClientId),
+		slog.Int64("registrationId", tc.auth.RegistrationId),
 	)
 
 	return nil

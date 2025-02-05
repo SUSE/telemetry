@@ -15,7 +15,7 @@ type TelemetryReport struct {
 	Footer           TelemetryReportFooter `json:"footer" validate:"required"`
 }
 
-func NewTelemetryReport(clientId int64, tags types.Tags) *TelemetryReport {
+func NewTelemetryReport(clientId string, tags types.Tags) *TelemetryReport {
 	tr := new(TelemetryReport)
 
 	// fill in header fields
@@ -35,7 +35,7 @@ func NewTelemetryReport(clientId int64, tags types.Tags) *TelemetryReport {
 type TelemetryReportHeader struct {
 	ReportId          string   `json:"reportId" validate:"required"`
 	ReportTimeStamp   string   `json:"reportTimeStamp" validate:"required"`
-	ReportClientId    int64    `json:"reportClientId" validate:"required"`
+	ReportClientId    string   `json:"reportClientId" validate:"required"`
 	ReportAnnotations []string `json:"reportAnnotations"`
 }
 
@@ -48,7 +48,7 @@ const reportsColumns = `(
 	id INTEGER NOT NULL PRIMARY KEY,
 	reportId VARCHAR(64) NOT NULL,
 	reportTimestamp VARCHAR(32) NOT NULL,
-	reportClientId INTEGER NOT NULL,
+	reportClientId VARCHAR NOT NULL,
 	reportAnnotations TEXT,
 	reportChecksum VARCHAR(256)
 )`
@@ -57,12 +57,12 @@ type TelemetryReportRow struct {
 	Id                int64
 	ReportId          string
 	ReportTimestamp   string
-	ReportClientId    int64
+	ReportClientId    string
 	ReportAnnotations string
 	ReportChecksum    string
 }
 
-func NewTelemetryReportRow(clientId int64, tags types.Tags) (*TelemetryReportRow, error) {
+func NewTelemetryReportRow(clientId string, tags types.Tags) (*TelemetryReportRow, error) {
 
 	report := NewTelemetryReport(clientId, tags)
 	reportRow := TelemetryReportRow{}

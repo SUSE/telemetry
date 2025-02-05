@@ -128,7 +128,7 @@ func (t *TelemetryProcessorTestSuite) TestCreateBundle() {
 	}
 
 	btags := types.Tags{types.Tag("key1=value1"), types.Tag("key2")}
-	bundleRow, berr := telemetryprocessor.GenerateBundle(1, "customer id", btags)
+	bundleRow, berr := telemetryprocessor.GenerateBundle("1", "customer id", btags)
 
 	if berr != nil {
 		t.Fail("Test failed to create the bundle")
@@ -206,7 +206,7 @@ func (t *TelemetryProcessorTestSuite) TestReport() {
 
 			// generate a bundle to hold unassigned items
 			btags := types.Tags{types.Tag("key1=value1"), types.Tag("key2")}
-			bundleRow, berr := telemetryprocessor.GenerateBundle(1, "customer id", btags)
+			bundleRow, berr := telemetryprocessor.GenerateBundle("1", "customer id", btags)
 			if berr != nil {
 				t.Fail("Test failed to create the bundle")
 			}
@@ -239,7 +239,7 @@ func (t *TelemetryProcessorTestSuite) TestReport() {
 
 			// generate a second bundle
 			btags1 := types.Tags{types.Tag("key3=value3"), types.Tag("key4")}
-			bundleRow, berr = telemetryprocessor.GenerateBundle(1, "customer id", btags1)
+			bundleRow, berr = telemetryprocessor.GenerateBundle("1", "customer id", btags1)
 			if berr != nil {
 				t.Fail("Test failed to create the bundle")
 			}
@@ -274,7 +274,7 @@ func (t *TelemetryProcessorTestSuite) TestReport() {
 
 			// generate a report consuming available bundles
 			rtags := types.Tags{types.Tag("key5=value5"), types.Tag("key6")}
-			reportRow, err := telemetryprocessor.GenerateReport(123456, rtags)
+			reportRow, err := telemetryprocessor.GenerateReport("123456", rtags)
 			assert.NoError(t.T(), err, "Report failed")
 
 			// validate the total and unassigned bundle counts
