@@ -18,15 +18,25 @@ const (
 
 type TelemetryClientRegistration struct {
 	types.ClientRegistration
-	path  string
-	valid bool
+	path     string
+	valid    bool
+	no_retry bool
 }
 
 func NewTelemetryClientRegistration() *TelemetryClientRegistration {
 	return &TelemetryClientRegistration{
-		path:  REGISTRATION_PATH,
-		valid: false,
+		path:     REGISTRATION_PATH,
+		valid:    false,
+		no_retry: false,
 	}
+}
+
+func (r *TelemetryClientRegistration) RetriesEnabled() bool {
+	return !r.no_retry
+}
+
+func (r *TelemetryClientRegistration) DisableRetries() {
+	r.no_retry = true
 }
 
 func (r *TelemetryClientRegistration) Valid() bool {
@@ -80,7 +90,7 @@ func (r *TelemetryClientRegistration) Save() (err error) {
 	if err != nil {
 		slog.Error(
 			"failed to json.Marshal() client registration",
-			slog.String("regId", r.String()),
+			slog.String("reg", r.String()),
 			slog.String("err", err.Error()),
 		)
 		return
@@ -91,7 +101,7 @@ func (r *TelemetryClientRegistration) Save() (err error) {
 	if err != nil {
 		slog.Error(
 			"failed to write client registration file",
-			slog.String("regId", r.String()),
+			slog.String("reg", r.String()),
 			slog.String("err", err.Error()),
 		)
 		return
@@ -99,7 +109,7 @@ func (r *TelemetryClientRegistration) Save() (err error) {
 
 	slog.Debug(
 		"client registration saved",
-		slog.String("regId", r.String()),
+		slog.String("reg", r.String()),
 	)
 	return
 }
@@ -117,7 +127,7 @@ func (r *TelemetryClientRegistration) Load() (err error) {
 		}
 		slog.Error(
 			msg,
-			slog.String("regIdPath", r.path),
+			slog.String("regPath", r.path),
 			slog.String("err", err.Error()),
 		)
 		return
@@ -129,7 +139,7 @@ func (r *TelemetryClientRegistration) Load() (err error) {
 	if err != nil {
 		slog.Error(
 			"failed to read client registration file",
-			slog.String("regIdPath", r.path),
+			slog.String("regPath", r.path),
 			slog.String("err", err.Error()),
 		)
 		return
@@ -141,7 +151,7 @@ func (r *TelemetryClientRegistration) Load() (err error) {
 	if err != nil {
 		slog.Error(
 			"failed to json.Unmarshal() client registration file contents",
-			slog.String("regIdPath", r.path),
+			slog.String("regPath", r.path),
 			slog.String("contents", string(bytes)),
 			slog.String("err", err.Error()),
 		)
@@ -150,7 +160,40 @@ func (r *TelemetryClientRegistration) Load() (err error) {
 
 	slog.Debug(
 		"client registration loaded",
-		slog.String("regId", r.String()),
+		slog.String("reg", r.String()),
 	)
+	return
+}
+
+func (r *TelemetryClientRegistration) Remove() (err error) {
+	// mark in-memory version as invalid
+	r.valid = false
+
+	// check if registration file exists
+	_, err = os.Stat(r.path)
+	if err != nil {
+		if !errors.Is(err, fs.ErrNotExist) {
+			// nothing to do, and not a failure, if registration file doesn't exist
+			err = nil
+		} else {
+			slog.Error(
+				"unable to os.Stat() client registration file",
+				slog.String("regPath", r.path),
+				slog.String("err", err.Error()),
+			)
+		}
+		return
+	}
+
+	// remove the registration client, reporting any errors that occurr
+	err = os.Remove(r.path)
+	if err != nil {
+		slog.Error(
+			"failed to os.Remove() client registration file",
+			slog.String("regPath", r.path),
+			slog.String("err", err.Error()),
+		)
+	}
+
 	return
 }

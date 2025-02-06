@@ -71,8 +71,32 @@ func (tc *TelemetryClient) Register() (err error) {
 		return
 	}
 
-	// TODO: Handle http.StatusConflict (409) as needing to regenerate registration
-	if resp.StatusCode != http.StatusOK {
+	// check the response status code, and handle appropriately
+	switch resp.StatusCode {
+	case http.StatusOK:
+		// all good, nothing to do
+
+	case http.StatusConflict:
+		// retry if a duplicate client registration attempt is detected
+		if tc.reg.RetriesEnabled() {
+			slog.Warn(
+				"Duplicate client registration detected, forcing re-registration",
+			)
+
+			// delete the existing registration, forcing it to be regenerated as
+			// part of the next client registration attempt
+			tc.reg.Remove()
+
+			// disable further retries
+			tc.reg.DisableRetries()
+
+			// retry client registration
+			return tc.Register()
+		}
+		fallthrough
+
+	default:
+		// unhandled error so fail appropriately
 		err = fmt.Errorf("client registration failed: %s", string(respBody))
 		return
 	}

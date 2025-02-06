@@ -71,12 +71,44 @@ func checkFileReadAccessible(filePath string) bool {
 	return true
 }
 
-func (tc *TelemetryClient) ensureRegistrationExists() (err error) {
+func (tc *TelemetryClient) getRegistration() (reg types.ClientRegistration, err error) {
+	// ensure that a registration exists, creating one if needed
+	err = tc.ensureRegistrationExists()
+	if err != nil {
+		return
+	}
 
-	// if the client registration is valid and accessible then nothing to do
-	if tc.reg.Valid() && tc.reg.Accessible() {
+	// if a registration is already loaded then nothing more to do
+	if tc.reg.Valid() {
+		reg = tc.reg.Registration()
+		return
+	}
+
+	err = tc.reg.Load()
+	if err != nil {
 		slog.Debug(
-			"client registration exists",
+			"failed to load client registration",
+			slog.String("reg", tc.reg.Path()),
+			slog.String("err", err.Error()),
+		)
+		return
+	}
+
+	slog.Debug(
+		"successfully loaded client registration",
+		slog.String("reg", tc.reg.String()),
+	)
+
+	reg = tc.reg.ClientRegistration
+
+	return
+}
+
+func (tc *TelemetryClient) ensureRegistrationExists() (err error) {
+	// if the existing client registration is valid then nothing to do
+	if tc.reg.Valid() {
+		slog.Debug(
+			"client registration already loaded",
 			slog.String("reg", tc.reg.String()),
 		)
 		return nil
@@ -87,19 +119,26 @@ func (tc *TelemetryClient) ensureRegistrationExists() (err error) {
 		slog.String("regPath", tc.reg.path),
 	)
 
-	// generate a new client registration if needed
-	if !tc.reg.Valid() {
-		tc.reg.Generate()
+	if tc.reg.Accessible() {
 		slog.Debug(
-			"client registration generated",
-			slog.String("reg", tc.reg.String()),
+			"client registration exists, needs to be loaded",
+			slog.String("regPath", tc.reg.Path()),
 		)
+		return nil
 	}
 
+	// need to generate a new client registration if needed
+	tc.reg.Generate()
+	slog.Debug(
+		"client registration generated",
+		slog.String("reg", tc.reg.String()),
+	)
+
+	// save the generated client registration
 	err = tc.reg.Save()
 	if err != nil {
 		slog.Debug(
-			"failed to save client registration generated",
+			"failed to save generated client registration",
 			slog.String("reg", tc.reg.String()),
 		)
 		return err
@@ -206,33 +245,6 @@ func (tc *TelemetryClient) RegistrationPath() string {
 
 func (tc *TelemetryClient) RegistrationAccessible() bool {
 	return tc.reg.Accessible()
-}
-
-func (tc *TelemetryClient) getRegistration() (reg types.ClientRegistration, err error) {
-
-	err = tc.ensureRegistrationExists()
-	if err != nil {
-		return
-	}
-
-	err = tc.reg.Load()
-	if err != nil {
-		slog.Debug(
-			"failed to load client registration",
-			slog.String("reg", tc.reg.Path()),
-			slog.String("err", err.Error()),
-		)
-		return
-	}
-
-	slog.Debug(
-		"successfully loaded client registration",
-		slog.String("reg", tc.reg.String()),
-	)
-
-	reg = tc.reg.ClientRegistration
-
-	return
 }
 
 func (tc *TelemetryClient) deleteTelemetryAuth() (err error) {
