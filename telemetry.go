@@ -204,13 +204,13 @@ func Status() (status ClientStatus) {
 	// update status to indicate that telemetry client datastore is accessible
 	status = CLIENT_DATASTORE_ACCESSIBLE
 
-	// check that an instance id is available
+	// check that an registration is available
 	if !tc.RegistrationAccessible() {
 		slog.Warn("Telemetry client registration has not been setup", slog.String("path", tc.RegistrationPath()))
 		return
 	}
 
-	// update status to indicate client has instance id
+	// update status to indicate client has registration
 	status = CLIENT_REGISTRATION_ACCESSIBLE
 
 	// check that we have obtained a telemetry auth token

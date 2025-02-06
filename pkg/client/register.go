@@ -13,16 +13,16 @@ import (
 )
 
 func (tc *TelemetryClient) Register() (err error) {
+	// get the registration, failing if it can't be retrieved
+	reg, err := tc.getRegistration()
+	if err != nil {
+		return
+	}
+
 	// get the saved TelemetryAuth, returning success if found
 	err = tc.loadTelemetryAuth()
 	if err == nil {
 		slog.Debug("telemetry auth found, client already registered, skipping", slog.Int64("registrationId", tc.auth.RegistrationId))
-		return
-	}
-
-	// get the registration, failing if it can't be retrieved
-	reg, err := tc.getRegistration()
-	if err != nil {
 		return
 	}
 

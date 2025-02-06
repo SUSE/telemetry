@@ -15,18 +15,18 @@ import (
 // Authenticate is responsible for (re)authenticating an already registered
 // client with the server to ensure that it's auth token is up to date.
 func (tc *TelemetryClient) Authenticate() (err error) {
+	// get the registration, failing if it can't be retrieved
+	regId, err := tc.getRegistration()
+	if err != nil {
+		return
+	}
+
 	if err = tc.loadTelemetryAuth(); err != nil {
 		return fmt.Errorf(
 			"telemetry client (re-)authentication requires an existing "+
 				"client registration: %s",
 			err.Error(),
 		)
-	}
-
-	// get the instanceId, failing if it can't be retrieved
-	regId, err := tc.getRegistration()
-	if err != nil {
-		return
 	}
 
 	// assemble the authentication request

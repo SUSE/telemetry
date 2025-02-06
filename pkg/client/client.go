@@ -22,7 +22,6 @@ const (
 	CONFIG_DIR  = "/tmp/susetelemetry"
 	CONFIG_PATH = CONFIG_DIR + "/config.yaml"
 	AUTH_PATH   = CONFIG_DIR + "/auth.json"
-	//INSTANCEID_PATH = CONFIG_DIR + "/instanceid"
 )
 
 // TODO: unify with restapi.ClientRegistrationResponse
@@ -185,10 +184,6 @@ func (tc *TelemetryClient) AuthAccessible() bool {
 
 func (tc *TelemetryClient) HasAuth() bool {
 	return checkFileExists(tc.AuthPath())
-}
-
-func (tc *TelemetryClient) HasInstanceId() bool {
-	return checkFileExists(tc.RegistrationPath())
 }
 
 func (tc *TelemetryClient) Processor() telemetrylib.TelemetryProcessor {

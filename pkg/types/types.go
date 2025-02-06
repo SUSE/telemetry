@@ -144,8 +144,7 @@ func (c *ClientRegistrationHash) Match(m *ClientRegistrationHash) bool {
 	return (c.Method == m.Method) && (c.Value == m.Value)
 }
 
-// ClientInstanceId
-// type ClientRegistrationId string
+// ClientRegistration
 type ClientRegistration struct {
 	ClientId   string `json:"clientId"`
 	SystemUUID string `json:"systemUUID"`
