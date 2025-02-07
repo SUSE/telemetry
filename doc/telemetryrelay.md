@@ -15,8 +15,9 @@ will be processed as follows:
    the [telemetry bundles](api/structs/telemetrybundle.md).
 2. The telemetry relay will annotate each bundle with a new 
    [RELAYED_VIA tag](telemetrytag.md) whose value consists of the
-   [client Id](telemetryclientid.md) of the client that submitted the report, and the telemetry
-   relay's own client Id, joined with a `:`.
+   [registration Id](telemetryregistrationid.md) of the client that
+   submitted the report, and the telemetry relay's own registration Id,
+   joined with a `:`.
 3. The telemetry relay will stage the received telemetry bundles
    locally.
 4. Once sufficient bundles are available, or enough time has passed,

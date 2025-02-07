@@ -15,7 +15,7 @@ Request body type `ClientRegistrationRequest` defined in [restapi module](../../
 | Code | Description | Example |
 | ---- | ----------- | ------- |
 | 200  | Success<br>`Content-Type: application/json`<br>{<br>&nbsp;&nbsp;registrationId integer($int64)<br>&nbsp;&nbsp;authToken string<br>&nbsp;&nbsp;registrationDate string<br>} | {<br>&nbsp;&nbsp;"registrationId": 1234567890<br>&nbsp;&nbsp;"authToken": "encoded.JWT.token"<br>&nbsp;&nbsp;"registrationDate": "2024-08-01T01:02:03.000000Z"<br>} |
-| 400  | Bad Request<br>Missing or incompatible body<br>`Content-Type: application/json`<br>{<br>&nbsp;&nbsp;error string<br>} | {<br>&nbsp;&nbsp;"error": "missing registration clientId"<br>}<br>or<br>{<br>&nbsp;&nbsp;"error": "missing registration timespace"<br>} |
-| 409  | Conflict<br>Client Registration already registered<br>`Content-Type: application/json`<br>{<br>&nbsp;&nbsp;error string<br>} | {<br>&nbsp;&nbsp;"error": "specified registration already exists"<br>} |
+| 400  | Bad Request<br>Missing or incompatible body<br>`Content-Type: application/json`<br>{<br>&nbsp;&nbsp;error string<br>} | {<br>&nbsp;&nbsp;"error": "missing registration clientId"<br>}<br>or<br>{<br>&nbsp;&nbsp;"error": "missing registration timestamp"<br>} |
+| 409  | Conflict<br>Client Registration or Registration's Client Id already registered<br>`Content-Type: application/json`<br>{<br>&nbsp;&nbsp;error string<br>} | {<br>&nbsp;&nbsp;"error": "specified registration already exists"<br>}<br>or<br>{<br>&nbsp;&nbsp;"error": "specified registration clientId already exists"<br>} |
 
 Response success body type `ClientRegistrationResponse` defined in [restapi module](../../../pkg/restapi/)

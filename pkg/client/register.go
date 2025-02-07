@@ -77,6 +77,11 @@ func (tc *TelemetryClient) Register() (err error) {
 		// all good, nothing to do
 
 	case http.StatusConflict:
+		slog.Debug(
+			"StatusConflict returned",
+			slog.Int("StatusCode", resp.StatusCode),
+			slog.String("error", string(respBody)),
+		)
 		// retry if a duplicate client registration attempt is detected
 		if tc.reg.RetriesEnabled() {
 			slog.Warn(
