@@ -39,7 +39,7 @@ by [telemetry relays](telemetryrelay.md) to assist in uniquely
 identifying telemetry clients.  When telemetry is relayed, the relay
 will add a RELAYED_VIA tag to the telemetry submission which identifies
 both the relay and the client that submitted the telemetry to the
-relay. The aggregate of the RELATED_VIA tag values associated with a
+relay. The aggregate of the RELAYED_VIA tag values associated with a
 telemetry data item can thus be used to uniquely identify the path
 from the originating client to the main telemetry service gateway,
 and thus uniquely identify a specific client's telemetry submissions.
