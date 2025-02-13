@@ -37,7 +37,7 @@ type TelemetryBundleHeader struct {
 	BundleId          string   `json:"bundleId" validate:"required"`
 	BundleTimeStamp   string   `json:"bundleTimeStamp" validate:"required"`
 	BundleClientId    int64    `json:"bundleClientId" validate:"required"`
-	BundleCustomerId  string   `json:"buncleCustomerId" validate:"required"`
+	BundleCustomerId  string   `json:"bundleCustomerId" validate:"required"`
 	BundleAnnotations []string `json:"bundleAnnotations"`
 }
 
