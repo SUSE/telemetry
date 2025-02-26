@@ -22,7 +22,8 @@ func (t *TestConfigTestSuite) TestConfigFileNotFound() {
 
 	assert.Equal(t.T(), DefaultCfg.TelemetryBaseURL, config.TelemetryBaseURL, "TelemetryBaseURL value is not the expected")
 	assert.Equal(t.T(), DefaultCfg.Enabled, config.Enabled, "Enabled value is not the expected")
-	assert.Equal(t.T(), DefaultCfg.CustomerID, config.CustomerID, "CustomerID value is not the expected")
+	assert.Equal(t.T(), DefaultCfg.ClientId, config.ClientId, "ClientId value is not the expected")
+	assert.Equal(t.T(), DefaultCfg.CustomerId, config.CustomerId, "CustomerId value is not the expected")
 	assert.Equal(t.T(), DefaultCfg.Tags, config.Tags, "Tags value is not the expected")
 	assert.Equal(t.T(), DefaultCfg.DataStores.Driver, config.DataStores.Driver, "DataStores.Driver is not the expected")
 	assert.Equal(t.T(), DefaultCfg.DataStores.Params, config.DataStores.Params, "DataStores.Params is not the expected")

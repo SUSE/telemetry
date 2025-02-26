@@ -51,6 +51,14 @@ The verification tests can be run from within the telemetry repo as follows:
 % make test
 ```
 
+For a more detailed test run, including coverage details, the test-verbose
+target can be used:
+
+```
+% cd telemetry
+% make test-verbose
+```
+
 ## Local Developer Testing
 First ensure that the SUSE/telemetry-server is running with the local
 server config file. Then run the cmd/generator tool from the telemetry

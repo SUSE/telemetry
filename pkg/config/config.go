@@ -4,23 +4,26 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"os"
+	"path/filepath"
 	"slices"
 
 	"gopkg.in/yaml.v3"
 
 	"github.com/SUSE/telemetry/pkg/types"
+	"github.com/SUSE/telemetry/pkg/utils"
 )
 
 type Config struct {
 	TelemetryBaseURL string             `yaml:"telemetry_base_url"`
 	Enabled          bool               `yaml:"enabled"`
-	CustomerID       string             `yaml:"customer_id"`
+	ClientId         string             `yaml:"client_id"`
+	CustomerId       string             `yaml:"customer_id"`
 	Tags             []string           `yaml:"tags"`
 	DataStores       DBConfig           `yaml:"datastores"`
 	ClassOptions     ClassOptionsConfig `yaml:"classOptions"`
 	Logging          LogConfig          `yaml:"logging"`
 	Extras           any                `yaml:"extras,omitempty"`
+	cfgPath          string
 }
 
 // Defaults
@@ -46,7 +49,8 @@ var DefaultCfg = Config{
 	//TelemetryBaseURL: "https://scc.suse.com/telemetry/",
 	TelemetryBaseURL: "http://localhost:9999/telemetry",
 	Enabled:          false,
-	CustomerID:       "0",
+	ClientId:         "",
+	CustomerId:       "0",
 	Tags:             []string{},
 	DataStores:       DefaultDBCfg,
 	Logging:          DefaultLogging,
@@ -77,26 +81,57 @@ type ClassOptionsConfig struct {
 	Deny   []types.TelemetryType `yaml:"deny" json:"deny"`
 }
 
-func NewConfig(cfgFile string) (*Config, error) {
+func NewConfig(cfgPath string) (*Config, error) {
 
-	//Default configuration
-	cfg := &DefaultCfg
+	//Initialise with default configuration
+	cfg := &Config{}
+	*cfg = DefaultCfg
 
-	_, err := os.Stat(cfgFile)
-	if os.IsNotExist(err) {
-		slog.Warn("config file doesn't exist. Using default configuration", slog.String("cfgfile", cfgFile))
+	// get absolute path of config file
+	absPath, err := filepath.Abs(cfgPath)
+	if err != nil {
+		return cfg, fmt.Errorf("unable to resolve absolute path of config file %q: %w", cfgPath, err)
+	}
+
+	cfgFile := utils.NewManagedFile()
+	cfgFile.Init(
+		absPath,
+		// TODO (fmccarthy): revisit the file ownership
+		"", // current user
+		"", // current user's primary group
+		0644,
+	)
+
+	exists, err := cfgFile.Exists()
+	if err != nil || !exists {
+		if err != nil {
+			slog.Debug(
+				"existence check for config file failed",
+				slog.String("cfgPath", cfgPath),
+				slog.String("err", err.Error()),
+			)
+		}
+		slog.Warn("config file doesn't exist. Using default configuration", slog.String("cfgPath", cfgPath))
 		return cfg, nil
 	}
 
-	contents, err := os.ReadFile(cfgFile)
+	err = cfgFile.Create()
 	if err != nil {
-		return cfg, fmt.Errorf("failed to read contents of config file '%s': %s", cfgFile, err)
+		return cfg, fmt.Errorf("failed to open config file %q: %w", cfgPath, err)
+	}
+
+	// config file exists and is accessible so record it
+	cfg.cfgPath = cfgPath
+
+	contents, err := cfgFile.Read()
+	if err != nil {
+		return cfg, fmt.Errorf("failed to read contents of config file %q: %w", cfgPath, err)
 	}
 
 	slog.Debug("Config", slog.String("contents", string(contents)))
 	err = yaml.Unmarshal(contents, &cfg)
 	if err != nil {
-		return cfg, fmt.Errorf("failed to parse contents of config file '%s': %s", cfgFile, err)
+		return cfg, fmt.Errorf("failed to parse contents of config file %q: %w", cfgPath, err)
 	}
 
 	return cfg, nil
