@@ -34,7 +34,7 @@ func (tc *TelemetryClient) submitReportInternal(report *telemetrylib.TelemetryRe
 
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Authorization", "Bearer "+tc.auth.Token.String())
-	req.Header.Add("X-Telemetry-Client-Id", fmt.Sprintf("%d", tc.auth.ClientId))
+	req.Header.Add("X-Telemetry-Registration-Id", fmt.Sprintf("%d", tc.auth.RegistrationId))
 
 	httpClient := http.DefaultClient
 	resp, err := httpClient.Do(req)

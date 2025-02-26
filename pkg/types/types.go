@@ -129,31 +129,36 @@ func (tc *TelemetryClass) String() string {
 	return "UNKNOWN_TELEMETRY_CLASS"
 }
 
-type ClientInstanceIdHash struct {
+type ClientRegistrationHash struct {
 	Method string `json:"method"`
 	Value  string `json:"value"`
 }
 
-func (c *ClientInstanceIdHash) String() string {
+func (c *ClientRegistrationHash) String() string {
 	bytes, _ := json.Marshal(c)
 
 	return string(bytes)
 }
 
-func (c *ClientInstanceIdHash) Match(m *ClientInstanceIdHash) bool {
+func (c *ClientRegistrationHash) Match(m *ClientRegistrationHash) bool {
 	return (c.Method == m.Method) && (c.Value == m.Value)
 }
 
-// ClientInstanceId
-type ClientInstanceId string
+// ClientRegistration
+type ClientRegistration struct {
+	ClientId   string `json:"clientId"`
+	SystemUUID string `json:"systemUUID"`
+	Timestamp  string `json:"timestamp"`
+}
 
-func (c *ClientInstanceId) String() string {
-	return string(*c)
+func (c *ClientRegistration) String() string {
+	bytes, _ := json.Marshal(c)
+	return string(bytes)
 }
 
 const DEF_INSTID_HASH_METHOD = "sha256"
 
-func (c *ClientInstanceId) Hash(inputMethod string) *ClientInstanceIdHash {
+func (c *ClientRegistration) Hash(inputMethod string) *ClientRegistrationHash {
 	var methodHash hash.Hash
 
 	// this routine is expected to succeed so ensure a valid method is used
@@ -179,10 +184,10 @@ func (c *ClientInstanceId) Hash(inputMethod string) *ClientInstanceIdHash {
 	case "sha512":
 		methodHash = sha512.New()
 	}
-	methodHash.Write([]byte(*c))
+	methodHash.Write([]byte(c.String()))
 
 	// construct the return value
-	return &ClientInstanceIdHash{
+	return &ClientRegistrationHash{
 		Method: method,
 		Value:  hex.EncodeToString(methodHash.Sum(nil)),
 	}

@@ -8,8 +8,8 @@ The TelemetryReport data structure consists of the following sections:
   * reportTimeStamp - the UTC timestamp for when the bundle was generated,
     formatted in [RFC3339nano](../../telemetrytimestamp.md) format
   * reportClientId - the clientId of the telemetry client generating this
-    report, as specified in the credentials returned when the telemetry
-    client successfully registered with the upstream telemetry server.
+    report, as specified in the registraion used to successfully register
+    the client with the upstream telemetry server.
   * reportAnnotations - a possibly empty list of
     [telemetry annotation tags](../../telemetrytag.md)
 * payload - a list of one or more [TelemetryBundle](telemetrybundle.md) objects
@@ -24,7 +24,7 @@ relayed through one or more telemetry relays.
 	header {
     reportId          string
     reportTimeStamp   string($rfc3339nano)
-    reportClientId    integer($int64)
+    reportClientId    string
     reportAnnotations [
       string...
     ]

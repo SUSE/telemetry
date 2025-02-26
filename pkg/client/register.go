@@ -13,22 +13,22 @@ import (
 )
 
 func (tc *TelemetryClient) Register() (err error) {
-	// get the saved TelemetryAuth, returning success if found
-	err = tc.loadTelemetryAuth()
-	if err == nil {
-		slog.Debug("telemetry auth found, client already registered, skipping", slog.Int64("clientId", tc.auth.ClientId))
+	// get the registration, failing if it can't be retrieved
+	reg, err := tc.getRegistration()
+	if err != nil {
 		return
 	}
 
-	// get the instanceId, failing if it can't be retrieved
-	instId, err := tc.getInstanceId()
-	if err != nil {
+	// get the saved TelemetryAuth, returning success if found
+	err = tc.loadTelemetryAuth()
+	if err == nil {
+		slog.Debug("telemetry auth found, client already registered, skipping", slog.Int64("registrationId", tc.auth.RegistrationId))
 		return
 	}
 
 	// register the system as a client
 	var crReq restapi.ClientRegistrationRequest
-	crReq.ClientInstanceId = instId
+	crReq.ClientRegistration = reg
 	reqBodyJSON, err := json.Marshal(&crReq)
 	if err != nil {
 		slog.Error(
@@ -71,8 +71,37 @@ func (tc *TelemetryClient) Register() (err error) {
 		return
 	}
 
-	// TODO: Handle http.StatusConflict (409) as needing to regenerate instId
-	if resp.StatusCode != http.StatusOK {
+	// check the response status code, and handle appropriately
+	switch resp.StatusCode {
+	case http.StatusOK:
+		// all good, nothing to do
+
+	case http.StatusConflict:
+		slog.Debug(
+			"StatusConflict returned",
+			slog.Int("StatusCode", resp.StatusCode),
+			slog.String("error", string(respBody)),
+		)
+		// retry if a duplicate client registration attempt is detected
+		if tc.reg.RetriesEnabled() {
+			slog.Warn(
+				"Duplicate client registration detected, forcing re-registration",
+			)
+
+			// delete the existing registration, forcing it to be regenerated as
+			// part of the next client registration attempt
+			tc.reg.Remove()
+
+			// disable further retries
+			tc.reg.DisableRetries()
+
+			// retry client registration
+			return tc.Register()
+		}
+		fallthrough
+
+	default:
+		// unhandled error so fail appropriately
 		err = fmt.Errorf("client registration failed: %s", string(respBody))
 		return
 	}
@@ -87,7 +116,7 @@ func (tc *TelemetryClient) Register() (err error) {
 		return
 	}
 
-	tc.auth.ClientId = crResp.ClientId
+	tc.auth.RegistrationId = crResp.RegistrationId
 	tc.auth.Token = types.TelemetryAuthToken(crResp.AuthToken)
 	tc.auth.RegistrationDate, err = types.TimeStampFromString(crResp.RegistrationDate)
 	if err != nil {
@@ -112,7 +141,7 @@ func (tc *TelemetryClient) Register() (err error) {
 
 	slog.Debug(
 		"successfully registered as client",
-		slog.Int64("clientId", tc.auth.ClientId),
+		slog.Int64("registrationId", tc.auth.RegistrationId),
 	)
 
 	return nil

@@ -14,7 +14,7 @@ import (
 
 // ClientRegistrationRequest is the request payload body POST'd to the server
 type ClientRegistrationRequest struct {
-	ClientInstanceId types.ClientInstanceId `json:"clientInstanceId"`
+	ClientRegistration types.ClientRegistration `json:"clientRegistration"`
 }
 
 func (c *ClientRegistrationRequest) String() string {
@@ -25,7 +25,7 @@ func (c *ClientRegistrationRequest) String() string {
 
 // ClientRegistrationResponse is the response payload body from the server
 type ClientRegistrationResponse struct {
-	ClientId         int64  `json:"clientId"`
+	RegistrationId   int64  `json:"registrationId"`
 	AuthToken        string `json:"authToken"`
 	RegistrationDate string `json:"registrationDate"`
 }
@@ -38,8 +38,8 @@ func (c *ClientRegistrationResponse) String() string {
 
 // Client Authenticate handling via /temelemtry/authenticate
 type ClientAuthenticationRequest struct {
-	ClientId   int64                      `json:"clientId"`
-	InstIdHash types.ClientInstanceIdHash `json:"instIdHash"`
+	RegistrationId int64                        `json:"registrationId"`
+	RegHash        types.ClientRegistrationHash `json:"regHash"`
 }
 
 func (c *ClientAuthenticationRequest) String() string {

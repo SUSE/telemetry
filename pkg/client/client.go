@@ -1,7 +1,6 @@
 package client
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,20 +19,22 @@ import (
 
 const (
 	//CONFIG_DIR  = "/etc/susetelemetry"
-	CONFIG_DIR      = "/tmp/susetelemetry"
-	CONFIG_PATH     = CONFIG_DIR + "/config.yaml"
-	AUTH_PATH       = CONFIG_DIR + "/auth.json"
-	INSTANCEID_PATH = CONFIG_DIR + "/instanceid"
+	CONFIG_DIR  = "/tmp/susetelemetry"
+	CONFIG_PATH = CONFIG_DIR + "/config.yaml"
+	AUTH_PATH   = CONFIG_DIR + "/auth.json"
 )
 
+// TODO: unify with restapi.ClientRegistrationResponse
 type TelemetryAuth struct {
-	ClientId         int64                    `json:"clientId"`
-	Token            types.TelemetryAuthToken `json:"token"`
+	// TODO: unify these fields with restapi.ClientRegistrationResponse
+	RegistrationId   int64                    `json:"registrationId"`
+	Token            types.TelemetryAuthToken `json:"authToken"`
 	RegistrationDate types.TelemetryTimeStamp `json:"registrationDate"`
 }
 
 type TelemetryClient struct {
 	cfg        *config.Config
+	reg        *TelemetryClientRegistration
 	auth       TelemetryAuth
 	authLoaded bool
 	processor  telemetrylib.TelemetryProcessor
@@ -41,6 +42,7 @@ type TelemetryClient struct {
 
 func NewTelemetryClient(cfg *config.Config) (tc *TelemetryClient, err error) {
 	tc = &TelemetryClient{cfg: cfg}
+	tc.reg = NewTelemetryClientRegistration()
 	tc.processor, err = telemetrylib.NewTelemetryProcessor(&cfg.DataStores)
 	return
 }
@@ -69,30 +71,85 @@ func checkFileReadAccessible(filePath string) bool {
 	return true
 }
 
-func ensureInstanceIdExists(instIdPath string) error {
+func (tc *TelemetryClient) getRegistration() (reg types.ClientRegistration, err error) {
+	// ensure that a registration exists, creating one if needed
+	err = tc.ensureRegistrationExists()
+	if err != nil {
+		return
+	}
 
-	slog.Debug("ensuring existence of instIdPath", slog.String("instIdPath", instIdPath))
-	_, err := os.Stat(instIdPath)
-	if !os.IsNotExist(err) {
+	// if a registration is already loaded then nothing more to do
+	if tc.reg.Valid() {
+		reg = tc.reg.Registration()
+		return
+	}
+
+	err = tc.reg.Load()
+	if err != nil {
+		slog.Debug(
+			"failed to load client registration",
+			slog.String("reg", tc.reg.Path()),
+			slog.String("err", err.Error()),
+		)
+		return
+	}
+
+	slog.Debug(
+		"successfully loaded client registration",
+		slog.String("reg", tc.reg.String()),
+	)
+
+	reg = tc.reg.ClientRegistration
+
+	return
+}
+
+func (tc *TelemetryClient) ensureRegistrationExists() (err error) {
+	// if the existing client registration is valid then nothing to do
+	if tc.reg.Valid() {
+		slog.Debug(
+			"client registration already loaded",
+			slog.String("reg", tc.reg.String()),
+		)
 		return nil
 	}
 
-	// For now generate an instanceId as a base64 encoded timestamp
-	now := types.Now().String()
-	instId := make([]byte, base64.StdEncoding.EncodedLen(len(now)))
-	base64.StdEncoding.Encode(instId, []byte(now))
+	slog.Debug(
+		"ensuring existence of client registration",
+		slog.String("regPath", tc.reg.path),
+	)
 
-	err = os.WriteFile(instIdPath, instId, 0600)
-	if err != nil {
-		slog.Error(
-			"failed to write instId to instIdPath",
-			slog.String("instId", string(instId)),
-			slog.String("instIdPath", instIdPath),
-			slog.String("err", err.Error()),
+	if tc.reg.Accessible() {
+		slog.Debug(
+			"client registration exists, needs to be loaded",
+			slog.String("regPath", tc.reg.Path()),
 		)
+		return nil
 	}
 
-	return nil
+	// need to generate a new client registration if needed
+	tc.reg.Generate()
+	slog.Debug(
+		"client registration generated",
+		slog.String("reg", tc.reg.String()),
+	)
+
+	// save the generated client registration
+	err = tc.reg.Save()
+	if err != nil {
+		slog.Debug(
+			"failed to save generated client registration",
+			slog.String("reg", tc.reg.String()),
+		)
+		return err
+	}
+
+	slog.Debug(
+		"saved client registration",
+		slog.String("reg", tc.reg.String()),
+	)
+
+	return
 }
 
 func (tc *TelemetryClient) authParsedToken() (token *jwt.Token, err error) {
@@ -164,16 +221,8 @@ func (tc *TelemetryClient) AuthAccessible() bool {
 	return checkFileReadAccessible(tc.AuthPath())
 }
 
-func (tc *TelemetryClient) InstanceIdAccessible() bool {
-	return checkFileReadAccessible(tc.InstIdPath())
-}
-
 func (tc *TelemetryClient) HasAuth() bool {
 	return checkFileExists(tc.AuthPath())
-}
-
-func (tc *TelemetryClient) HasInstanceId() bool {
-	return checkFileExists(tc.InstIdPath())
 }
 
 func (tc *TelemetryClient) Processor() telemetrylib.TelemetryProcessor {
@@ -186,38 +235,16 @@ func (tc *TelemetryClient) AuthPath() string {
 	return AUTH_PATH
 }
 
-func (tc *TelemetryClient) InstIdPath() string {
-	// hard coded for now, possibly make a config option
-	return INSTANCEID_PATH
+func (tc *TelemetryClient) ClientId() string {
+	return tc.reg.ClientId
 }
 
-func (tc *TelemetryClient) getInstanceId() (instId types.ClientInstanceId, err error) {
-	instIdPath := tc.InstIdPath()
+func (tc *TelemetryClient) RegistrationPath() string {
+	return tc.reg.path
+}
 
-	err = ensureInstanceIdExists(instIdPath)
-	if err != nil {
-		return
-	}
-
-	data, err := os.ReadFile(instIdPath)
-	if err != nil {
-		slog.Error(
-			"failed to read instId file",
-			slog.String("path", instIdPath),
-			slog.String("err", err.Error()),
-		)
-		return
-	}
-
-	instId = types.ClientInstanceId((data))
-
-	slog.Debug(
-		"successfully read instId file",
-		slog.String("path", string(instIdPath)),
-		slog.String("instId", string(instId)),
-	)
-
-	return
+func (tc *TelemetryClient) RegistrationAccessible() bool {
+	return tc.reg.Accessible()
 }
 
 func (tc *TelemetryClient) deleteTelemetryAuth() (err error) {
@@ -271,8 +298,8 @@ func (tc *TelemetryClient) loadTelemetryAuth() (err error) {
 		return
 	}
 
-	if tc.auth.ClientId <= 0 {
-		err = fmt.Errorf("invalid client id")
+	if tc.auth.RegistrationId <= 0 {
+		err = fmt.Errorf("invalid registration id")
 		slog.Error(
 			"invalid auth",
 			slog.String("authPath", authPath),
@@ -494,7 +521,7 @@ func (tc *TelemetryClient) Generate(telemetry types.TelemetryType, content *type
 func (tc *TelemetryClient) CreateBundles(tags types.Tags) error {
 	// Bundle existing telemetry data items found in DataItem data store into one or more bundles in the Bundle data store
 	slog.Debug("Bundle", slog.String("Tags", tags.String()))
-	tc.processor.GenerateBundle(tc.auth.ClientId, tc.cfg.CustomerID, tags)
+	tc.processor.GenerateBundle(tc.ClientId(), tc.cfg.CustomerID, tags)
 
 	return nil
 }
@@ -502,7 +529,7 @@ func (tc *TelemetryClient) CreateBundles(tags types.Tags) error {
 func (tc *TelemetryClient) CreateReports(tags types.Tags) (err error) {
 	// Generate reports from available bundles
 	slog.Debug("CreateReports", slog.String("Tags", tags.String()))
-	tc.processor.GenerateReport(tc.auth.ClientId, tags)
+	tc.processor.GenerateReport(tc.ClientId(), tags)
 
 	return
 }

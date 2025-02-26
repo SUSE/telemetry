@@ -15,6 +15,12 @@ import (
 // Authenticate is responsible for (re)authenticating an already registered
 // client with the server to ensure that it's auth token is up to date.
 func (tc *TelemetryClient) Authenticate() (err error) {
+	// get the registration, failing if it can't be retrieved
+	regId, err := tc.getRegistration()
+	if err != nil {
+		return
+	}
+
 	if err = tc.loadTelemetryAuth(); err != nil {
 		return fmt.Errorf(
 			"telemetry client (re-)authentication requires an existing "+
@@ -23,16 +29,10 @@ func (tc *TelemetryClient) Authenticate() (err error) {
 		)
 	}
 
-	// get the instanceId, failing if it can't be retrieved
-	instId, err := tc.getInstanceId()
-	if err != nil {
-		return
-	}
-
 	// assemble the authentication request
 	caReq := restapi.ClientAuthenticationRequest{
-		ClientId:   tc.auth.ClientId,
-		InstIdHash: *instId.Hash("default"),
+		RegistrationId: tc.auth.RegistrationId,
+		RegHash:        *regId.Hash("default"),
 	}
 
 	reqBodyJSON, err := json.Marshal(&caReq)
@@ -92,7 +92,7 @@ func (tc *TelemetryClient) Authenticate() (err error) {
 		return
 	}
 
-	tc.auth.ClientId = caResp.ClientId
+	tc.auth.RegistrationId = caResp.RegistrationId
 	tc.auth.Token = types.TelemetryAuthToken(caResp.AuthToken)
 	tc.auth.RegistrationDate, err = types.TimeStampFromString(caResp.RegistrationDate)
 	if err != nil {
@@ -115,7 +115,7 @@ func (tc *TelemetryClient) Authenticate() (err error) {
 
 	slog.Debug(
 		"successfully authenticated",
-		slog.Int64("clientId", tc.auth.ClientId),
+		slog.Int64("registrationId", tc.auth.RegistrationId),
 	)
 
 	return

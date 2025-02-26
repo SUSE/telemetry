@@ -29,12 +29,12 @@ inheritance rules:
 
 ## Telemetry Annotation Tag Examples
 Some examples:
-* when bundles are relayed via a telemetry relay server a RELAYED_VIA
-  tag composed of the combination of the client id of the reporting
-  client and the relay server's client id will be added to the relayed
-  bundles.
-* telemetry relayed via a proxy service may be annotated by the proxy
-  type, e.g
+* when bundles are relayed via a [telemetry relay](telemetryrelay.md)
+  server a RELAYED_VIA tag composed of the combination of the registration
+  id of the reporting client and the relay server's registration id will
+  be added to the relayed bundles.
+* telemetry relayed or synthesised via a proxy service could be annotated
+  by the proxy type, e.g
   * PROXY_TYPE=RMT for RMT
-  * PROXY_TYPE=SUMA for SUSE Manager
+  * PROXY_TYPE=MLM for Multi Linux Manager
   * PROXY_TYPE=SCC for SCC
