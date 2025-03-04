@@ -521,7 +521,7 @@ func (tc *TelemetryClient) Generate(telemetry types.TelemetryType, content *type
 func (tc *TelemetryClient) CreateBundles(tags types.Tags) error {
 	// Bundle existing telemetry data items found in DataItem data store into one or more bundles in the Bundle data store
 	slog.Debug("Bundle", slog.String("Tags", tags.String()))
-	tc.processor.GenerateBundle(tc.ClientId(), tc.cfg.CustomerID, tags)
+	tc.processor.GenerateBundle(tc.ClientId(), tc.cfg.CustomerId, tags)
 
 	return nil
 }
