@@ -115,7 +115,7 @@ func main() {
 }
 
 func init() {
-	flag.StringVar(&opts.config, "config", client.CONFIG_PATH, "Path to config file to read")
+	flag.StringVar(&opts.config, "config", config.DEF_CFG_PATH, "Path to config file to read")
 	flag.BoolVar(&opts.debug, "debug", false, "Whether to enable debug level logging.")
 	flag.BoolVar(&opts.dryrun, "dryrun", false, "Process provided JSON files but do add them to the telemetry staging area.")
 	flag.BoolVar(&opts.noregister, "noregister", false, "Whether to skip registering the telemetry client if it is needed.")

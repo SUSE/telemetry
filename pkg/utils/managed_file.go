@@ -13,6 +13,14 @@ import (
 	"syscall"
 )
 
+//
+// constants
+//
+
+//
+// private helper routines
+//
+
 func getUserInfo(u string) (user *os_user.User, err error) {
 	// use current user if no user specified
 	if u == "" {
@@ -94,6 +102,33 @@ func getGroupInfo(g string) (group *os_user.Group, err error) {
 	return
 }
 
+//
+// public helper routines
+//
+
+func CheckPathExists(chkPath string) bool {
+	slog.Debug("checking for existence", slog.String("path", chkPath))
+
+	if _, err := os.Stat(chkPath); err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			slog.Debug(
+				"specified path doesn't exist",
+				slog.String("path", chkPath),
+				slog.String("error", err.Error()),
+			)
+		} else {
+			slog.Error(
+				"os.Stat() failed",
+				slog.String("path", chkPath),
+				slog.String("error", err.Error()),
+			)
+		}
+		return false
+	}
+
+	return true
+}
+
 // mockable os interface
 type mockableOs interface {
 	OpenFile(name string, flag int, perm os.FileMode) (*os.File, error)
@@ -133,14 +168,35 @@ func (r *realSyscall) Flock(fd int, how int) (err error) {
 
 var _ mockableSyscall = (*realSyscall)(nil)
 
+// mockable filepath interface
+type mockableFilepath interface {
+	Abs(path string) (string, error)
+}
+
+type realFilepath struct{}
+
+func (r *realFilepath) Abs(path string) (string, error) {
+	return filepath.Abs(path)
+}
+
+var _ mockableFilepath = (*realFilepath)(nil)
+
 // FileManager interface
 type FileManager interface {
-	// init the structure
-	Init(path string, owner string, group string, perm os.FileMode) error
+	// init a new file manager
+	Init(filePath string, owner string, group string, perm os.FileMode) error
+
+	// init from an existing file
+	UseExistingFile(filePath string) error
+
+	// backups management
+	EnableBackups()
+	DisableBackups()
+	BackupsEnabled() bool
 
 	// file path
 	Path() string
-	SetPath(path string) error
+	SetPath(filePath string) error
 	Exists() (bool, error)
 
 	// file ownership and permissions
@@ -157,6 +213,7 @@ type FileManager interface {
 	IsLocked() bool
 
 	// data operations
+	Open(create bool) error
 	Create() error
 	Read() ([]byte, error)
 	Update(updatedContent []byte) error
@@ -167,21 +224,36 @@ type FileManager interface {
 
 // ManagedFile
 type ManagedFile struct {
-	os      mockableOs      // normally the os module, replaceable for testing purposes
-	syscall mockableSyscall // normally the syscall module, replaceable for testing purposes
+	// mockable interfaces to standard modules
+	os       mockableOs       // normally uses os module, replaceable for testing purposes
+	syscall  mockableSyscall  // normally uses syscall module, replaceable for testing purposes
+	filepath mockableFilepath // normally uses filepath module, replaceable for testing purposes
+
+	// internal state
 	path    string
 	user    *os_user.User
 	group   *os_user.Group
 	perm    os.FileMode
 	locked  bool
 	file    *os.File
+	backups bool
 }
 
 func NewManagedFile() *ManagedFile {
 	return &ManagedFile{
-		os:      &realOs{},
-		syscall: &realSyscall{},
+		os:       &realOs{},
+		syscall:  &realSyscall{},
+		filepath: &realFilepath{},
+		backups:  true,
 	}
+}
+
+func (fm *ManagedFile) stat() (fi os.FileInfo, err error) {
+	if err = fm.checkPath(); err != nil {
+		return
+	}
+
+	return fm.os.Stat(fm.path)
 }
 
 func (fm *ManagedFile) dbg(msg string) {
@@ -219,7 +291,7 @@ func (fm *ManagedFile) checkPath() (err error) {
 	return
 }
 
-func (fm *ManagedFile) Init(path, user, group string, perm os.FileMode) (err error) {
+func (fm *ManagedFile) Init(filePath, user, group string, perm os.FileMode) (err error) {
 	if err = fm.SetPerm(perm); err != nil {
 		return
 	}
@@ -229,7 +301,7 @@ func (fm *ManagedFile) Init(path, user, group string, perm os.FileMode) (err err
 	if err = fm.SetGroup(group); err != nil {
 		return
 	}
-	if err = fm.SetPath(path); err != nil {
+	if err = fm.SetPath(filePath); err != nil {
 		return
 	}
 	fm.locked = false
@@ -237,16 +309,81 @@ func (fm *ManagedFile) Init(path, user, group string, perm os.FileMode) (err err
 	return
 }
 
+func (fm *ManagedFile) UseExistingFile(path string) (err error) {
+	// setup the path
+	err = fm.SetPath(path)
+	if err != nil {
+		return
+	}
+
+	// stat the file to get permissions and other details
+	fi, err := fm.stat()
+	if err != nil {
+		return fm.dbg_with_err("failed to stat file", err)
+	}
+
+	// setup fm.perm from stat results
+	fm.perm = fi.Mode().Perm()
+
+	// cast fi.Sys() to access user and group details
+	si, ok := fi.Sys().(*syscall.Stat_t)
+	if !ok {
+		err = fmt.Errorf("os.Stat(%q).Sys() not a syscall.Stat_t", path)
+		return
+	}
+
+	// lookup the user using the uid from the stat results
+	fm.user, err = os_user.LookupId(strconv.FormatInt(int64(si.Uid), 10))
+	if err != nil {
+		err = fmt.Errorf("failed to retrieve user info for uid %v: %w", si.Uid, err)
+		return
+	}
+
+	// lookup the group using the gid from the stat results
+	fm.group, err = os_user.LookupGroupId(strconv.FormatInt(int64(si.Gid), 10))
+	if err != nil {
+		err = fmt.Errorf("failed to retrieve group info for gid %v: %w", si.Gid, err)
+		return
+	}
+
+	// attempt to open the file to verify access
+	file, err := fm.open(fm.path, fm.perm, false)
+	if err != nil {
+		err = fmt.Errorf("failed to open %q: %w", fm.path, err)
+		return
+	}
+	file.Close()
+
+	return
+}
+
+func (fm *ManagedFile) EnableBackups() {
+	fm.backups = true
+}
+
+func (fm *ManagedFile) DisableBackups() {
+	fm.backups = false
+}
+
+func (fm *ManagedFile) BackupsEnabled() bool {
+	return fm.backups
+}
+
 func (fm *ManagedFile) Path() string {
 	return fm.path
 }
 
 func (fm *ManagedFile) SetPath(path string) (err error) {
-	if !filepath.IsAbs(path) {
-		return fm.dbg_with_err(
-			fmt.Sprintf("non-absolute path: %q", path),
-			fmt.Errorf("managed file paths must be absolute"),
+	// set fm.path to absolute path of specified file
+	absPath, err := fm.filepath.Abs(path)
+	if err != nil {
+		err = fmt.Errorf("unable to resolve absolute path of file %q: %w", path, err)
+		slog.Debug(
+			"unable to set path",
+			slog.String("path", path),
+			slog.String("err", err.Error()),
 		)
+		return
 	}
 
 	if fm.file != nil {
@@ -255,7 +392,7 @@ func (fm *ManagedFile) SetPath(path string) (err error) {
 		}
 	}
 
-	fm.path = path
+	fm.path = absPath
 	return
 }
 
@@ -266,7 +403,7 @@ func (fm *ManagedFile) Exists() (exists bool, err error) {
 
 	fm.dbg("checking if managed file exists")
 
-	if _, err = fm.os.Stat(fm.path); err == nil {
+	if _, err = fm.stat(); err == nil {
 		// stat succeeded so file exists
 		exists = true
 	} else if errors.Is(err, fs.ErrNotExist) {
@@ -490,8 +627,12 @@ func (fm *ManagedFile) IsLocked() bool {
 	return fm.locked
 }
 
-func (fm *ManagedFile) openCreate(path string, perm os.FileMode) (file *os.File, err error) {
-	var created bool
+func (fm *ManagedFile) open(
+	path string,
+	perm os.FileMode,
+	create_if_not_exists bool,
+) (file *os.File, err error) {
+	created := false
 
 	// in general we expect the file to already exist, so first try to open
 	// it for read + write access without creating it.
@@ -501,8 +642,9 @@ func (fm *ManagedFile) openCreate(path string, perm os.FileMode) (file *os.File,
 		perm,
 	)
 
-	// if the file doesn't already exist, attempt to create it
-	if err != nil && errors.Is(err, fs.ErrNotExist) {
+	// if the file doesn't already exist, and requested to create it then
+	// attempt to create it
+	if err != nil && errors.Is(err, fs.ErrNotExist) && create_if_not_exists {
 		fm.dbg_with_err("file doesn't exist, creating it", err)
 
 		file, err = fm.os.OpenFile(
@@ -534,9 +676,14 @@ func (fm *ManagedFile) openCreate(path string, perm os.FileMode) (file *os.File,
 	return
 }
 
-func (fm *ManagedFile) Create() (err error) {
+func (fm *ManagedFile) Open(create bool) (err error) {
+	action := map[bool]string{
+		true:  "create",
+		false: "open",
+	}
+
 	if err = fm.checkPath(); err != nil {
-		return fm.managedFileOperationFailed("create", err)
+		return fm.managedFileOperationFailed(action[create], err)
 	}
 
 	// ensure that we create files that will be accessible
@@ -547,21 +694,34 @@ func (fm *ManagedFile) Create() (err error) {
 	// if there is an existing file close it, will be reopened below
 	if fm.file != nil {
 		close_err := fm.Close()
-		fm.dbg_with_err("failed to close existing file during create", close_err)
+		fm.dbg_with_err(
+			fmt.Sprintf("failed to close existing file during %s", action[create]),
+			close_err,
+		)
 	}
 
 	// attempt to open the file, creating it if needed
-	fm.file, err = fm.openCreate(
+	fm.file, err = fm.open(
 		fm.path,
 		fm.perm,
+		create,
 	)
 
 	// fail if we couldn't open the file successfully
 	if err != nil {
-		return fm.err_with_err("failed to create and open file", err)
+		return fm.err_with_err(
+			fmt.Sprintf("failed to %s file", action[create]),
+			err,
+		)
 	}
 
 	return
+}
+
+func (fm *ManagedFile) Create() (err error) {
+	return fm.Open(
+		true, // create the file if it doesn't already exist
+	)
 }
 
 func (fm *ManagedFile) backupFileName() string {
@@ -569,6 +729,10 @@ func (fm *ManagedFile) backupFileName() string {
 }
 
 func (fm *ManagedFile) Backup() (err error) {
+	if !fm.BackupsEnabled() {
+		return
+	}
+
 	if err = fm.checkPath(); err != nil {
 		return fm.managedFileOperationFailed("backup", err)
 	}
@@ -588,7 +752,7 @@ func (fm *ManagedFile) Backup() (err error) {
 	}
 
 	bkupName := fm.backupFileName()
-	bkup, err := fm.openCreate(bkupName, fm.perm.Perm())
+	bkup, err := fm.open(bkupName, fm.perm.Perm(), true)
 	if err != nil {
 		return fm.err_with_err("failed to create backup", err)
 	}

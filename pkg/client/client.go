@@ -4,24 +4,22 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/SUSE/telemetry/pkg/config"
 	telemetrylib "github.com/SUSE/telemetry/pkg/lib"
 	"github.com/SUSE/telemetry/pkg/types"
+	"github.com/SUSE/telemetry/pkg/utils"
 	"github.com/golang-jwt/jwt/v5"
 )
 
 const (
-	//CONFIG_DIR  = "/etc/susetelemetry"
-	CONFIG_DIR  = "/tmp/susetelemetry"
-	CONFIG_PATH = CONFIG_DIR + "/config.yaml"
-	AUTH_PATH   = CONFIG_DIR + "/auth.json"
+	AUTH_NAME = "credentials"
 )
 
 // TODO: unify with restapi.ClientRegistrationResponse
@@ -40,28 +38,32 @@ type TelemetryClient struct {
 	processor  telemetrylib.TelemetryProcessor
 }
 
-func NewTelemetryClient(cfg *config.Config) (tc *TelemetryClient, err error) {
-	tc = &TelemetryClient{cfg: cfg}
-	tc.reg = NewTelemetryClientRegistration()
-	tc.processor, err = telemetrylib.NewTelemetryProcessor(&cfg.DataStores)
-	return
-}
+func NewTelemetryClient(cfg *config.Config) (*TelemetryClient, error) {
+	var err error
 
-func checkFileExists(filePath string) bool {
-	slog.Debug("checking for existence", slog.String("filePath", filePath))
+	tc := &TelemetryClient{cfg: cfg}
 
-	if _, err := os.Stat(filePath); err != nil {
-		if !errors.Is(err, fs.ErrExist) {
-			slog.Debug(
-				"failed to stat path",
-				slog.String("filePath", filePath),
-				slog.String("error", err.Error()),
-			)
-			return false
-		}
+	tc.reg, err = NewTelemetryClientRegistration(cfg)
+	if err != nil {
+		slog.Debug(
+			"failed to create a new client registration",
+			slog.String("configDir", cfg.ConfigDir()),
+			slog.String("err", err.Error()),
+		)
+		return nil, fmt.Errorf("failed to create a new client registration: %w", err)
 	}
 
-	return true
+	tc.processor, err = telemetrylib.NewTelemetryProcessor(&cfg.DataStores)
+	if err != nil {
+		slog.Debug(
+			"failed to setup datastore management",
+			slog.String("DataStores", cfg.DataStores.String()),
+			slog.String("err", err.Error()),
+		)
+		return nil, fmt.Errorf("failed to setup data store manager: %w", err)
+	}
+
+	return tc, nil
 }
 
 func checkFileReadAccessible(filePath string) bool {
@@ -116,36 +118,30 @@ func (tc *TelemetryClient) ensureRegistrationExists() (err error) {
 
 	slog.Debug(
 		"ensuring existence of client registration",
-		slog.String("regPath", tc.reg.path),
+		slog.String("path", tc.reg.Path()),
 	)
 
 	if tc.reg.Accessible() {
 		slog.Debug(
 			"client registration exists, needs to be loaded",
-			slog.String("regPath", tc.reg.Path()),
+			slog.String("path", tc.reg.Path()),
 		)
 		return nil
 	}
 
-	// need to generate a new client registration if needed
-	tc.reg.Generate()
-	slog.Debug(
-		"client registration generated",
-		slog.String("reg", tc.reg.String()),
-	)
-
-	// save the generated client registration
-	err = tc.reg.Save()
-	if err != nil {
-		slog.Debug(
-			"failed to save generated client registration",
-			slog.String("reg", tc.reg.String()),
+	// generate a new client registration if needed
+	if err = tc.reg.Generate(); err != nil {
+		slog.Error(
+			"failed to generate a new registration",
+			slog.String("path", tc.reg.Path()),
+			slog.String("err", err.Error()),
 		)
-		return err
+		return
 	}
 
 	slog.Debug(
-		"saved client registration",
+		"client registration saved",
+		slog.String("path", tc.reg.Path()),
 		slog.String("reg", tc.reg.String()),
 	)
 
@@ -222,7 +218,7 @@ func (tc *TelemetryClient) AuthAccessible() bool {
 }
 
 func (tc *TelemetryClient) HasAuth() bool {
-	return checkFileExists(tc.AuthPath())
+	return utils.CheckPathExists(tc.AuthPath())
 }
 
 func (tc *TelemetryClient) Processor() telemetrylib.TelemetryProcessor {
@@ -232,7 +228,7 @@ func (tc *TelemetryClient) Processor() telemetrylib.TelemetryProcessor {
 
 func (tc *TelemetryClient) AuthPath() string {
 	// hard coded for now, possibly make a config option
-	return AUTH_PATH
+	return filepath.Join(tc.cfg.ConfigDir(), AUTH_NAME)
 }
 
 func (tc *TelemetryClient) ClientId() string {
@@ -240,7 +236,7 @@ func (tc *TelemetryClient) ClientId() string {
 }
 
 func (tc *TelemetryClient) RegistrationPath() string {
-	return tc.reg.path
+	return tc.reg.Path()
 }
 
 func (tc *TelemetryClient) RegistrationAccessible() bool {

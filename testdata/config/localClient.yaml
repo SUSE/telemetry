@@ -1,16 +1,17 @@
 telemetry_base_url: http://localhost:9999/telemetry
 enabled: true
-customer_id: 1234567890
+client_id: d19ecc03-787c-469b-8bf5-71df704f3b16
+customer_id: TEST_CUSTOMER
 tags: []
 datastores:
   driver: sqlite3
   params: /tmp/telemetry/client/telemetry.db
-logging:
-  level: info
-  location: stderr
-  style: text
 class_options:
   opt_out: true
   opt_in: false
   allow: []
   deny: []
+logging:
+  level: info
+  location: stderr
+  style: text

@@ -9,7 +9,6 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.22
 	github.com/stretchr/testify v1.9.0
-	github.com/xyproto/randomstring v1.0.5
 	gopkg.in/yaml.v3 v3.0.1
 )
 

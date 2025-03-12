@@ -3,6 +3,8 @@ package client
 import (
 	"log/slog"
 	"os"
+
+	"github.com/SUSE/telemetry/pkg/utils"
 )
 
 const (
@@ -16,7 +18,7 @@ func getSystemUUID() string {
 	sysuuidPath := LINUX_SYSTEM_UUID_PATH
 
 	// if identified system UUID path doesn't exist, return empty string
-	if !checkFileExists(sysuuidPath) {
+	if !utils.CheckPathExists(sysuuidPath) {
 		slog.Debug(
 			"Unable to locate the Linux hardware UUID",
 			slog.String("path", sysuuidPath),
