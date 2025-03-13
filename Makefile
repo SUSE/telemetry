@@ -1,4 +1,4 @@
-GO_COVERAGE_PROFILE=/tmp/.coverage.telemetry.out
+export GO_COVERAGE_PROFILE = /tmp/.coverage.telemetry.out
 
 .DEFAULT_GOAL := build
 
