@@ -7,7 +7,7 @@ Type: ***POST***
 | Name | Type | Description | Example |
 | ---- | ---- | ----------- | ------- |
 | [Authorization](../headers/authorization.md) | header | A `Bearer` schema authorization | `Authorization: Bearer <JWT>`<br>Where \<JWT\> specifies the [JWT](https://jwt.io/) |
-| [X-Telemetry-Client-Id](../headers/telemetry-client-id.md) | header | The clientId of the telemetry client<br>submitting the report | `X-Telemetry-Client-Id: 1234567890` |
+| [X-Telemetry-Registration-Id](../headers/telemetry-registration-id.md) | header | The registrationId of the telemetry client<br>submitting the report | `X-Telemetry-Registration-Id: 1234567890` |
 | body | object | A [Telemetry Report](../structs/telemetryreport.md) containing<br>one or more [Telemetry Bundles](../structs/telemetrybundles.md) | See [Telemetry Report](../structs/telemetryreport.md) for more details. |
 
 ## Responses

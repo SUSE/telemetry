@@ -7,7 +7,7 @@ import (
 
 	"github.com/SUSE/telemetry/pkg/config"
 	"github.com/SUSE/telemetry/pkg/types"
-	"github.com/SUSE/telemetry/pkg/utils"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -341,7 +341,7 @@ func addDataItems(totalItems int, processor TelemetryProcessor) error {
 		`
 	numItems := 1
 	for numItems <= totalItems {
-		formattedJSON := types.NewTelemetryBlob([]byte(fmt.Sprintf(payload, utils.GenerateRandomString(3))))
+		formattedJSON := types.NewTelemetryBlob([]byte(fmt.Sprintf(payload, uuid.New().String())))
 		err := processor.AddData(telemetryType, formattedJSON, tags)
 		if err != nil {
 			slog.Error(

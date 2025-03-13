@@ -142,7 +142,7 @@ func main() {
 
 func init() {
 	flag.BoolVar(&opts.debug, "debug", false, "Enable debug level logging")
-	flag.StringVar(&opts.config, "config", client.CONFIG_PATH, "Path to config file to read")
+	flag.StringVar(&opts.config, "config", config.DEF_CFG_PATH, "Path to config file to read")
 	flag.BoolVar(&opts.items, "items", false, "Report details on telemetry data items datastore")
 	flag.BoolVar(&opts.bundles, "bundles", false, "Report details on telemetry bundles datastore")
 	flag.BoolVar(&opts.reports, "reports", false, "Report details on telemetry reports datastore")

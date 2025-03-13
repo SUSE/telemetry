@@ -19,13 +19,13 @@ type FileManagerTestSuite struct {
 
 func (t *FileManagerTestSuite) SetupSuite() {
 	currUser, err := os_user.Current()
-	t.NoError(err, "os/user.Current()")
-	t.NotNil(currUser, "currUser")
+	t.Require().NoError(err, "os/user.Current()")
+	t.Require().NotNil(currUser, "currUser")
 	t.user = currUser
 
 	currGroup, err := os_user.LookupGroupId(currUser.Gid)
-	t.NoError(err, "os/user.LookupGroupId(currUser.Gid)")
-	t.NotNil(currGroup, "currGroup")
+	t.Require().NoError(err, "os/user.LookupGroupId(currUser.Gid)")
+	t.Require().NotNil(currGroup, "currGroup")
 	t.group = currGroup
 }
 
@@ -34,10 +34,10 @@ func (t *FileManagerTestSuite) TearDownSuite() {
 
 func (t *FileManagerTestSuite) SetupTest() {
 	tmpDir, err := os.MkdirTemp("", ".fileMgrTest.*")
-	t.NoError(err, "os.MkdirTemp()")
+	t.Require().NoError(err, "os.MkdirTemp()")
+	t.Require().NotEmpty(tmpDir, "tmpDir should be setup")
 
 	t.tmpDir = tmpDir
-	t.NotEmpty(t.tmpDir, "tmpDir should be setup")
 }
 
 func (t *FileManagerTestSuite) TearDownTest() {
@@ -51,9 +51,11 @@ func (t *FileManagerTestSuite) SkipIfRoot() {
 	}
 }
 
-func (t *FileManagerTestSuite) Test_PathMustBeAbsolute() {
+func (t *FileManagerTestSuite) Test_Paths() {
 	// use a common test file path
 	filename := filepath.Join(t.tmpDir, "test_file")
+
+	t.False(CheckPathExists(filename), "test file shouldn't exist yet")
 
 	fm := NewManagedFile()
 	defer fm.Close()
@@ -65,7 +67,7 @@ func (t *FileManagerTestSuite) Test_PathMustBeAbsolute() {
 		"",
 		0600,
 	)
-	t.Error(err, "fm.Init() with relative path")
+	t.NoError(err, "fm.Init() with relative path")
 
 	// absolute path
 	err = fm.Init(
@@ -75,6 +77,14 @@ func (t *FileManagerTestSuite) Test_PathMustBeAbsolute() {
 		0600,
 	)
 	t.NoError(err, "fm.Init() with absolute path")
+
+	err = fm.Create()
+	t.NoError(err, "fm.Create() should work")
+
+	t.True(CheckPathExists(filename), "test file should exist now")
+
+	err = fm.UseExistingFile(filename)
+	t.NoError(err, "fm.UseExistingFile() should work")
 }
 
 func (t *FileManagerTestSuite) Test_InitUserGroup() {
@@ -560,6 +570,30 @@ func (t *FileManagerTestSuite) Test_ReadWriteBackup() {
 	t.NoError(err, "orig.Exists() shouldn't fail")
 	t.True(exists, "original path should exist")
 	t.NotEmpty(orig.file, "original path opened")
+
+	// backups should be enabled by default
+	t.True(orig.BackupsEnabled(), "backups should be enabled by default")
+
+	// disable backups
+	orig.DisableBackups()
+
+	// backups should be disabled now
+	t.False(orig.BackupsEnabled(), "backups should be disabled now")
+
+	// backups are disabled so no backup should be created
+	err = orig.Backup()
+	t.NoError(err, "backup shouldn't fail when disabled")
+
+	// bkupPath shouldn't exist yet
+	exists, err = bkup.Exists()
+	t.NoError(err, "bkup.Exists() shouldn't fail")
+	t.False(exists, "backup path shouldn't exist yet")
+
+	// disable backups
+	orig.EnableBackups()
+
+	// backups should be enabled again
+	t.True(orig.BackupsEnabled(), "backups should be enabled again")
 
 	// backup should now succeed
 	err = orig.Backup()

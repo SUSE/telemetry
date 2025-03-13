@@ -1,16 +1,39 @@
 package telemetry
 
 import (
+	"fmt"
 	"log/slog"
 
 	"github.com/SUSE/telemetry/pkg/client"
 	"github.com/SUSE/telemetry/pkg/config"
 	"github.com/SUSE/telemetry/pkg/types"
+	"github.com/SUSE/telemetry/pkg/utils"
 )
 
-type TelemetryType = types.TelemetryType
+//
+// config path management
+//
 
-type Tags = types.Tags
+// the active config path to use
+var activeConfigPath string = config.DEF_CFG_PATH
+
+// retrieve the default config path
+func DefaultConfigPath() string {
+	return config.DEF_CFG_PATH
+}
+
+// get the active config path
+func ConfigPath() string {
+	return activeConfigPath
+}
+
+// set the active config path
+func SetConfigPath(path string) {
+	activeConfigPath = path
+}
+
+// Telemetry Class, Type and Tags
+type TelemetryType = types.TelemetryType
 
 type TelemetryClass = types.TelemetryClass
 
@@ -20,6 +43,12 @@ const (
 	OPT_IN_TELEMETRY    = types.OPT_IN_TELEMETRY
 )
 
+type Tags = types.Tags
+
+//
+// GenerateFlags type
+//
+
 type GenerateFlags uint64
 
 const (
@@ -27,10 +56,14 @@ const (
 	SUBMIT   GenerateFlags = 1 << (iota - 1)
 )
 
+func (gf GenerateFlags) IsFlagSet(flag GenerateFlags) bool {
+	return (gf & flag) == flag
+}
+
 func (gf *GenerateFlags) String() string {
 	flags := "GENERATE"
 	switch {
-	case gf.FlagSet(SUBMIT):
+	case gf.IsFlagSet(SUBMIT):
 		flags += "|SUBMIT"
 		fallthrough
 	default:
@@ -39,15 +72,84 @@ func (gf *GenerateFlags) String() string {
 	return flags
 }
 
-func (gf GenerateFlags) FlagSet(flag GenerateFlags) bool {
-	return (gf & flag) == flag
-}
-
 func (gf GenerateFlags) SubmitRequested() bool {
-	return gf.FlagSet(SUBMIT)
+	return gf.IsFlagSet(SUBMIT)
 }
 
-func Generate(telemetry types.TelemetryType, class TelemetryClass, content []byte, tags types.Tags, flags GenerateFlags) (err error) {
+//
+// ClientStatus type
+//
+
+type ClientStatus int64
+
+const (
+	CLIENT_UNINITIALIZED ClientStatus = iota
+	CLIENT_CONFIG_MISSING
+	CLIENT_CONFIG_ACCESSIBLE
+	CLIENT_DISABLED
+	CLIENT_MISCONFIGURED
+	CLIENT_DATASTORE_ACCESSIBLE
+	CLIENT_REGISTRATION_ACCESSIBLE
+	CLIENT_REGISTERED
+)
+
+func (cs *ClientStatus) String() string {
+	switch *cs {
+	case CLIENT_UNINITIALIZED:
+		return "UNITITIALIZED"
+	case CLIENT_CONFIG_MISSING:
+		return "CONFIG_MISSING"
+	case CLIENT_CONFIG_ACCESSIBLE:
+		return "CONFIG_ACCESSIBLE"
+	case CLIENT_DISABLED:
+		return "DISABLED"
+	case CLIENT_MISCONFIGURED:
+		return "MISCONFIGURED"
+	case CLIENT_DATASTORE_ACCESSIBLE:
+		return "DATASTORE_ACCESSIBLE"
+	case CLIENT_REGISTRATION_ACCESSIBLE:
+		return "REGISTRATION_ACCESSIBLE"
+	case CLIENT_REGISTERED:
+		return "REGISTERED"
+	}
+	return "UNKNOWN_TELEMETRY_CLIENT_STATUS"
+}
+
+//
+// Helper routines
+//
+
+func getClientConfig() (cfg *config.Config, err error) {
+	// attempt to load the active config
+	cfg, err = config.NewConfig(activeConfigPath)
+	if err != nil {
+		slog.Error(
+			"Failed to load telemetry client config",
+			slog.String("path", activeConfigPath),
+			slog.String("error", err.Error()),
+		)
+		err = fmt.Errorf(
+			"failed to load telemetry client config %q: %w",
+			activeConfigPath,
+			err,
+		)
+		return nil, err
+	}
+
+	return cfg, nil
+}
+
+//
+// Telemetry Generation and Submission
+//
+
+func Generate(
+	telemetry types.TelemetryType,
+	class TelemetryClass,
+	content []byte,
+	tags types.Tags,
+	flags GenerateFlags,
+) (err error) {
 	// check that the telemetry type is valid
 	if valid, err := telemetry.Valid(); !valid {
 		slog.Error(
@@ -59,15 +161,18 @@ func Generate(telemetry types.TelemetryType, class TelemetryClass, content []byt
 
 	// check that the telemetry content is valid
 	blob := types.NewTelemetryBlob(content)
-
-	// attempt to load the default config file
-	cfg, err := config.NewConfig(client.CONFIG_PATH)
-	if err != nil {
+	if err = blob.Valid(); err != nil {
 		slog.Error(
-			"Failed to load telemetry client config",
-			slog.String("path", client.CONFIG_PATH),
+			"Telemetry JSON blob is not valid",
+			slog.String("content", string(content)),
 			slog.String("error", err.Error()),
 		)
+		return fmt.Errorf("invalid Telemetry JSON blob: %w", err)
+	}
+
+	// attempt to load the active config file
+	cfg, err := getClientConfig()
+	if err != nil {
 		return
 	}
 
@@ -89,8 +194,8 @@ func Generate(telemetry types.TelemetryType, class TelemetryClass, content []byt
 	// check that the telemetry type is enabled for generation
 	if !cfg.TelemetryTypeEnabled(telemetry) {
 		slog.Warn(
-			"Telemetry class generation is disabled",
-			slog.String("class", class.String()),
+			"Telemetry type generation is disabled",
+			slog.String("telemetry type", telemetry.String()),
 		)
 		return
 	}
@@ -134,50 +239,32 @@ func Generate(telemetry types.TelemetryType, class TelemetryClass, content []byt
 	return
 }
 
-type ClientStatus int64
-
-const (
-	CLIENT_UNINITIALIZED ClientStatus = iota
-	CLIENT_CONFIG_ACCESSIBLE
-	CLIENT_DISABLED
-	CLIENT_MISCONFIGURED
-	CLIENT_DATASTORE_ACCESSIBLE
-	CLIENT_REGISTRATION_ACCESSIBLE
-	CLIENT_REGISTERED
-)
-
-func (cs *ClientStatus) String() string {
-	switch *cs {
-	case CLIENT_UNINITIALIZED:
-		return "UNITITIALIZED"
-	case CLIENT_CONFIG_ACCESSIBLE:
-		return "CONFIG_ACCESSIBLE"
-	case CLIENT_DISABLED:
-		return "DISABLED"
-	case CLIENT_MISCONFIGURED:
-		return "MISCONFIGURED"
-	case CLIENT_DATASTORE_ACCESSIBLE:
-		return "DATASTORE_ACCESSIBLE"
-	case CLIENT_REGISTRATION_ACCESSIBLE:
-		return "REGISTRATION_ACCESSIBLE"
-	case CLIENT_REGISTERED:
-		return "REGISTERED"
-	}
-	return "UNKNOWN_TELEMETRY_CLIENT_STATUS"
-}
+//
+// Telemetry Client Status Check
+//
 
 func Status() (status ClientStatus) {
+	var exists bool
+	var cfg *config.Config
+	var tc *client.TelemetryClient
+	var err error
+
 	// default to being uninitialised
 	status = CLIENT_UNINITIALIZED
 
-	// attempt to load the default config
-	cfg, err := config.NewConfig(client.CONFIG_PATH)
-	if err != nil {
-		slog.Warn(
-			"Failed to load telemetry client config",
-			slog.String("path", client.CONFIG_PATH),
-			slog.String("error", err.Error()),
+	// check that active config exists
+	exists = utils.CheckPathExists(activeConfigPath)
+	if !exists {
+		slog.Error(
+			"Specified telemetry client config doesn't exist",
+			slog.String("path", activeConfigPath),
 		)
+		return CLIENT_CONFIG_MISSING
+	}
+
+	// attempt to load the active config
+	cfg, err = getClientConfig()
+	if err != nil {
 		return
 	}
 
@@ -191,11 +278,11 @@ func Status() (status ClientStatus) {
 	}
 
 	// instantiate a telemetry client using provided config
-	tc, err := client.NewTelemetryClient(cfg)
+	tc, err = client.NewTelemetryClient(cfg)
 	if err != nil {
-		slog.Warn(
+		slog.Error(
 			"Failed to setup telemetry client using provided config",
-			slog.String("path", client.CONFIG_PATH),
+			slog.String("path", activeConfigPath),
 			slog.String("error", err.Error()),
 		)
 		return CLIENT_MISCONFIGURED
@@ -221,6 +308,88 @@ func Status() (status ClientStatus) {
 
 	// update status to indicate telemetry client is registered
 	status = CLIENT_REGISTERED
+
+	return
+}
+
+//
+// Telemetry Client Id Management
+//
+
+func GetTelemetryClientId() (clientId string, err error) {
+	// attempt to load the active config
+	cfg, err := getClientConfig()
+	if err != nil {
+		return
+	}
+
+	return cfg.ClientId, nil
+}
+
+func UpdateTelemetryClientId(clientId string) (err error) {
+	// attempt to load the active config
+	cfg, err := getClientConfig()
+	if err != nil {
+		return
+	}
+
+	cfg.ClientId = clientId
+
+	if err = cfg.Save(); err != nil {
+		slog.Error(
+			"Failed to update telemetry clientId",
+			slog.String("path", activeConfigPath),
+			slog.String("clientId", clientId),
+			slog.String("error", err.Error()),
+		)
+		err = fmt.Errorf(
+			"failed to update telemetry client id %q in config %q: %w",
+			clientId,
+			activeConfigPath,
+			err,
+		)
+	}
+
+	return
+}
+
+//
+// Telemetry Customer Id Management
+//
+
+func GetTelemetryCustomerId() (clientId string, err error) {
+	// attempt to load the active config
+	cfg, err := getClientConfig()
+	if err != nil {
+		return
+	}
+
+	return cfg.CustomerId, nil
+}
+
+func UpdateTelemetryCustomerId(customerId string) (err error) {
+	// attempt to load the active config
+	cfg, err := getClientConfig()
+	if err != nil {
+		return
+	}
+
+	cfg.CustomerId = customerId
+
+	if err = cfg.Save(); err != nil {
+		slog.Error(
+			"Failed to update telemetry customerId",
+			slog.String("path", activeConfigPath),
+			slog.String("customerId", customerId),
+			slog.String("error", err.Error()),
+		)
+		err = fmt.Errorf(
+			"failed to update telemetry customer id %q in config %q: %w",
+			customerId,
+			activeConfigPath,
+			err,
+		)
+	}
 
 	return
 }
