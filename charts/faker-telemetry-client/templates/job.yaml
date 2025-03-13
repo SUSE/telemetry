@@ -1,0 +1,26 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: faker-telemetry-client
+  labels:
+    app: faker-telemetry-client
+spec:
+  parallelism: {{ .Values.replicas }}
+  completions: {{ .Values.replicas }}
+  template:
+    metadata:
+      labels:
+        app: faker-telemetry-client
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: telemetry-client
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: SERVER_URL
+              value: "{{ .Values.env.serverURL }}"
+            - name: TELEMETRY_PATH
+              value: "{{ .Values.env.telemetryPath }}"
+            - name: FILE_COUNT
+              value: "{{ .Values.replicasFilesCount }}"
