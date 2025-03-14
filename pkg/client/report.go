@@ -178,6 +178,14 @@ func (tc *TelemetryClient) submitReportRetry(
 }
 
 func (tc *TelemetryClient) submitReport(report *telemetrylib.TelemetryReport) (err error) {
+	if err = report.Validate(); err != nil {
+		slog.Error(
+			"validation failure",
+			slog.String("err", err.Error()),
+		)
+		return
+	}
+
 	// TODO: make delay configurable, or possibly supplied by the request response
 	err = tc.submitReportRetry(report, 3, time.Duration(500*time.Millisecond))
 	return
