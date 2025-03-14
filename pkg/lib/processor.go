@@ -33,13 +33,13 @@ type TelemetryProcessor interface {
 	) (reportRow *TelemetryReportRow, err error)
 
 	// Convert TelemetryReportRow structure to TelemetryReport
-	ToReport(reportRow *TelemetryReportRow) (report TelemetryReport, err error)
+	ToReport(reportRow *TelemetryReportRow) (report *TelemetryReport, err error)
 
 	// Convert TelemetryBundleRow structure to TelemetryBundle
-	ToBundle(bundleRow *TelemetryBundleRow) (bundle TelemetryBundle, err error)
+	ToBundle(bundleRow *TelemetryBundleRow) (bundle *TelemetryBundle, err error)
 
 	// Convert TelemetryDataItemRow structure to TelemetryDataItem
-	ToItem(itemRow *TelemetryDataItemRow) (item TelemetryDataItem, err error)
+	ToItem(itemRow *TelemetryDataItemRow) (item *TelemetryDataItem, err error)
 }
 
 // implements TelemetryProcessor interface.
@@ -106,7 +106,10 @@ func NewTelemetryProcessor(cfg *config.DBConfig) (TelemetryProcessor, error) {
 }
 
 func (p *TelemetryProcessorImpl) AddData(telemetry types.TelemetryType, marshaledData *types.TelemetryBlob, tags types.Tags) (err error) {
-	dataItemRow := NewTelemetryDataItemRow(telemetry, tags, marshaledData)
+	dataItemRow, err := NewTelemetryDataItemRow(telemetry, tags, marshaledData)
+	if err != nil {
+		return err
+	}
 
 	return dataItemRow.Insert(p.t.storer.Conn)
 }
@@ -156,7 +159,7 @@ func (p *TelemetryProcessorImpl) GenerateReport(clientId string, tags types.Tags
 
 }
 
-func (p *TelemetryProcessorImpl) ToReport(reportRow *TelemetryReportRow) (report TelemetryReport, err error) {
+func (p *TelemetryProcessorImpl) ToReport(reportRow *TelemetryReportRow) (report *TelemetryReport, err error) {
 	// Convert TelemetryReportRow structure to TelemetryReport
 
 	annotations := strings.Split(reportRow.ReportAnnotations, ",")
@@ -168,33 +171,56 @@ func (p *TelemetryProcessorImpl) ToReport(reportRow *TelemetryReportRow) (report
 		ReportAnnotations: annotations,
 	}
 
-	reportFooter := TelemetryReportFooter{
-		Checksum: reportRow.ReportChecksum,
-	}
-
 	_, bundleRows, err := p.t.storer.GetBundles(reportRow.Id)
+	if err != nil {
+		slog.Error(
+			"Failed to retrieve bundles associated with reportId from data store",
+			slog.String("reportId", reportRow.ReportId),
+			slog.String("err", err.Error()),
+		)
+		return nil, err
+	}
 
 	var bundles []TelemetryBundle
 
-	for i := 0; i < len(bundleRows); i++ {
-		bundleRow := bundleRows[i]
-		var bundle TelemetryBundle
-		bundle, err = p.ToBundle(bundleRow)
-		bundles = append(bundles, bundle)
+	for _, bundleRow := range bundleRows {
+		var bundle *TelemetryBundle
 
+		bundle, err = p.ToBundle(bundleRow)
+		if err != nil {
+			slog.Error(
+				"Failed to generate bundle from datastore content",
+				slog.String("bundleRow", bundleRow.BundleId),
+				slog.String("err", err.Error()),
+			)
+			return nil, err
+		}
+
+		bundles = append(bundles, *bundle)
 	}
 
-	report = TelemetryReport{
+	report = &TelemetryReport{
 		Header:           reportHeader,
 		TelemetryBundles: bundles,
-		Footer:           reportFooter,
+	}
+
+	// update the checksum
+	err = report.UpdateChecksum()
+	if err != nil {
+		return nil, err
+	}
+
+	// validate the report
+	err = report.Validate()
+	if err != nil {
+		return nil, err
 	}
 
 	return
 
 }
 
-func (p *TelemetryProcessorImpl) ToBundle(bundleRow *TelemetryBundleRow) (bundle TelemetryBundle, err error) {
+func (p *TelemetryProcessorImpl) ToBundle(bundleRow *TelemetryBundleRow) (bundle *TelemetryBundle, err error) {
 	// Convert TelemetryBundleRow structure to TelemetryBundle
 	annotations := strings.Split(bundleRow.BundleAnnotations, ",")
 
@@ -206,32 +232,49 @@ func (p *TelemetryProcessorImpl) ToBundle(bundleRow *TelemetryBundleRow) (bundle
 		BundleAnnotations: annotations,
 	}
 
-	bundleFooter := TelemetryBundleFooter{
-		Checksum: bundleRow.BundleChecksum,
+	_, itemRows, err := p.t.storer.GetItems(bundleRow.Id)
+	if err != nil {
+		slog.Error(
+			"Failed to retrieve items associated with the bundleId from data store",
+			slog.String("bundleId", bundleRow.BundleId),
+			slog.String("err", err.Error()),
+		)
+		return nil, err
 	}
 
-	_, itemRows, err := p.t.storer.GetItems(bundleRow.Id)
 	var items []TelemetryDataItem
 
-	for j := 0; j < len(itemRows); j++ {
-		var item TelemetryDataItem
-		itemRow := itemRows[j]
-		item, err = p.ToItem(itemRow)
-		items = append(items, item)
+	for _, itemRow := range itemRows {
+		var item *TelemetryDataItem
 
+		item, err = p.ToItem(itemRow)
+		if err != nil {
+			slog.Error(
+				"Failed to generate item from datastore content",
+				slog.String("itemId", itemRow.ItemId),
+				slog.String("err", err.Error()),
+			)
+			return nil, err
+		}
+
+		items = append(items, *item)
 	}
 
-	bundle = TelemetryBundle{
+	bundle = &TelemetryBundle{
 		Header:             bundleHeader,
 		TelemetryDataItems: items,
-		Footer:             bundleFooter,
+	}
+
+	// update the checksum
+	err = bundle.UpdateChecksum()
+	if err != nil {
+		return nil, err
 	}
 
 	return
-
 }
 
-func (p *TelemetryProcessorImpl) ToItem(itemRow *TelemetryDataItemRow) (item TelemetryDataItem, err error) {
+func (p *TelemetryProcessorImpl) ToItem(itemRow *TelemetryDataItemRow) (item *TelemetryDataItem, err error) {
 	// Convert TelemetryDataItemRow structure to TelemetryDataItem
 	annotations := strings.Split(itemRow.ItemAnnotations, ",")
 	itemHeader := TelemetryDataItemHeader{
@@ -241,18 +284,26 @@ func (p *TelemetryProcessorImpl) ToItem(itemRow *TelemetryDataItemRow) (item Tel
 		TelemetryAnnotations: annotations,
 	}
 
-	itemFooter := TelemetryDataItemFooter{
-		Checksum: itemRow.ItemChecksum,
-	}
-
-	//data, err := utils.DeserializeMap(string(itemRow.ItemData))
-
-	item = TelemetryDataItem{
+	item = &TelemetryDataItem{
 		Header:        itemHeader,
 		TelemetryData: itemRow.ItemData,
-		Footer:        itemFooter,
+	}
+
+	// update the checksum
+	err = item.UpdateChecksum()
+	if err != nil {
+		return nil, err
+	}
+
+	// verify that the checksum matches what was recorded in the DB
+	if item.Footer.Checksum != itemRow.ItemChecksum {
+		err = fmt.Errorf(
+			"item checksum mismatch after retrieving from data store: %q != %q",
+			item.Footer.Checksum,
+			itemRow.ItemChecksum,
+		)
+		return nil, err
 	}
 
 	return
-
 }

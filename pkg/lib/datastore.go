@@ -242,7 +242,7 @@ func (d *DatabaseStore) GetBundles(reportIds ...any) (bundleRowIds []int64, bund
 	// generate the SQL populate query statement for the bundles table
 	query, queryBundleIds := genSqlPopulateQuery(
 		"bundles",
-		[]string{"id", "bundleId", "bundleTimestamp", "bundleClientId", "bundleCustomerId", "bundleAnnotations", "bundleChecksum", "reportId"},
+		[]string{"id", "bundleId", "bundleTimestamp", "bundleClientId", "bundleCustomerId", "bundleAnnotations", "reportId"},
 		"reportId",
 		reportIds,
 	)
@@ -269,7 +269,6 @@ func (d *DatabaseStore) GetBundles(reportIds ...any) (bundleRowIds []int64, bund
 			&bundleRow.BundleClientId,
 			&bundleRow.BundleCustomerId,
 			&bundleRow.BundleAnnotations,
-			&bundleRow.BundleChecksum,
 			&bundleRow.ReportId); err != nil {
 			slog.Error(
 				"Failed to scan bundle row",
@@ -296,7 +295,7 @@ func (d *DatabaseStore) GetReports(ids ...any) (reportRowIds []int64, reportRows
 	// generate the SQL populate query statement for the reports table
 	query, queryIds := genSqlPopulateQuery(
 		"reports",
-		[]string{"id", "reportId", "reportTimestamp", "reportClientId", "reportAnnotations", "reportChecksum"},
+		[]string{"id", "reportId", "reportTimestamp", "reportClientId", "reportAnnotations"},
 		"id",
 		ids,
 	)
@@ -322,7 +321,7 @@ func (d *DatabaseStore) GetReports(ids ...any) (reportRowIds []int64, reportRows
 			&reportRow.ReportTimestamp,
 			&reportRow.ReportClientId,
 			&reportRow.ReportAnnotations,
-			&reportRow.ReportChecksum); err != nil {
+		); err != nil {
 			slog.Error(
 				"Failed to scan report row",
 				slog.String("error", err.Error()),
@@ -409,7 +408,20 @@ func (d *DatabaseStore) GetReportCount(ids ...any) (count int, err error) {
 
 func (d *DatabaseStore) GetDataItemRowsInABundle(bundleId string) (itemRows []*TelemetryDataItemRow, err error) {
 	//perform a join between the items table and the bundle table to filter the items by the bundle ID.
-	rows, err := d.Conn.Query(`SELECT items.id, items.itemId, items.itemType, items.itemTimestamp, items.itemAnnotations, items.itemData, items.itemChecksum, items.compression, items.bundleId FROM items JOIN bundles ON items.bundleId = bundles.id WHERE bundles.bundleId = ?`, bundleId)
+	rows, err := d.Conn.Query(
+		`SELECT items.id,
+		        items.itemId,
+						items.itemType,
+						items.itemTimestamp,
+						items.itemAnnotations,
+						items.itemData,
+						items.itemChecksum,
+						items.compression,
+						items.bundleId
+		 FROM items JOIN bundles ON items.bundleId = bundles.id
+		 WHERE bundles.bundleId = ?`,
+		bundleId,
+	)
 
 	if err != nil {
 		slog.Error(
@@ -468,7 +480,18 @@ func (d *DatabaseStore) GetDataItemRowsInABundle(bundleId string) (itemRows []*T
 
 func (d *DatabaseStore) GetBundleRowsInAReport(reportId string) (bundleRows []*TelemetryBundleRow, err error) {
 	//perform a join between the bundles table and the report table to filter the bundles by the report ID.
-	rows, err := d.Conn.Query(`SELECT bundles.id, bundles.bundleId, bundles.bundleTimestamp, bundles.bundleClientId, bundles.bundleCustomerId, bundles.bundleAnnotations, bundles.bundleChecksum, bundles.reportId FROM bundles JOIN reports ON bundles.reportId = reports.id WHERE reports.reportId = ?`, reportId)
+	rows, err := d.Conn.Query(
+		`SELECT bundles.id,
+		        bundles.bundleId,
+						bundles.bundleTimestamp,
+						bundles.bundleClientId,
+						bundles.bundleCustomerId,
+						bundles.bundleAnnotations,
+						bundles.reportId
+		 FROM bundles JOIN reports ON bundles.reportId = reports.id
+		 WHERE reports.reportId = ?`,
+		reportId,
+	)
 
 	if err != nil {
 		slog.Error(
@@ -490,8 +513,8 @@ func (d *DatabaseStore) GetBundleRowsInAReport(reportId string) (bundleRows []*T
 			&bundleRow.BundleClientId,
 			&bundleRow.BundleCustomerId,
 			&bundleRow.BundleAnnotations,
-			&bundleRow.BundleChecksum,
-			&bundleRow.ReportId); err != nil {
+			&bundleRow.ReportId,
+		); err != nil {
 			slog.Error(
 				"Failed to scan bundle row",
 				slog.String("error", err.Error()),

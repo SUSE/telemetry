@@ -549,10 +549,10 @@ func (tc *TelemetryClient) Submit() (err error) {
 
 		report, err := tc.processor.ToReport(reportRow)
 		if err != nil {
-			return fmt.Errorf("failed to convert report %q: %w", reportRow.ReportId, err)
+			return fmt.Errorf("failed to generate report %q: %w", reportRow.ReportId, err)
 		}
 
-		if err := tc.submitReport(&report); err != nil {
+		if err := tc.submitReport(report); err != nil {
 			return fmt.Errorf("failed to submit report %q: %w", report.Header.ReportId, err)
 		}
 
