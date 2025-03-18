@@ -91,7 +91,7 @@ type TelemetryBundleHeader struct {
 	BundleId          string   `json:"bundleId,omitempty" validate:"required,uuid4"`
 	BundleTimeStamp   string   `json:"bundleTimeStamp" validate:"required"`
 	BundleClientId    string   `json:"bundleClientId,omitempty" validate:"required,uuid4"`
-	BundleCustomerId  string   `json:"bundleCustomerId" validate:"required"`
+	BundleCustomerId  string   `json:"bundleCustomerId" validate:"omitempty"`
 	BundleAnnotations []string `json:"bundleAnnotations,omitempty"`
 }
 
