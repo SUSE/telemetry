@@ -11,7 +11,7 @@ SUBDIRS = \
   examples/app \
   .
 
-TARGETS = fmt vet build build-only clean test test-clean test-verbose tidy
+TARGETS = fmt vet build build-only clean test test-clean test-verbose mod-tidy mod-update test-mod-update
 
 .PHONY: $(TARGETS)
 
