@@ -23,12 +23,13 @@ jobs:
         run: |
           set -eu
 
-          echo Creating testuser account
-          useradd -m -U -s /bin/bash testuser
+          testuser=${TESTUSER:-susetelm}
+          echo Creating ${testuser} account
+          useradd -m -U -s /bin/bash ${testuser}
 
           echo Changing ownership of directories accessed by the test
-          chown -R testuser:testuser telemetry /go
+          chown -R ${testuser}:${testuser} telemetry /go
 
-          echo Running tests as testuser
+          echo Running tests as ${testuser}
           cd telemetry
-          runuser -u testuser make test-verbose
+          runuser -u ${testuser} make test-verbose
