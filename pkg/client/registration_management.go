@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"os"
 	"path/filepath"
 
 	"github.com/SUSE/telemetry/pkg/config"
@@ -60,6 +59,11 @@ func NewTelemetryClientRegistration(cfg *config.Config) (*TelemetryClientRegistr
 	return r, nil
 }
 
+func (r *TelemetryClientRegistration) Exists() bool {
+	exists, _ := r.regFile.Exists()
+	return exists
+}
+
 func (r *TelemetryClientRegistration) RetriesEnabled() bool {
 	return !r.no_retry
 }
@@ -77,10 +81,8 @@ func (r *TelemetryClientRegistration) Path() string {
 }
 
 func (r *TelemetryClientRegistration) Accessible() bool {
-	if _, err := os.Open(r.Path()); err != nil {
-		return false
-	}
-	return true
+	accessible, _ := r.regFile.Accessible()
+	return accessible
 }
 
 func (r *TelemetryClientRegistration) Generate() (err error) {
@@ -102,12 +104,14 @@ func (r *TelemetryClientRegistration) Generate() (err error) {
 	r.ClientId = r.config.ClientId
 	r.SystemUUID = getSystemUUID()
 	r.Timestamp = types.Now().String()
+
+	// mark registration as valid
 	r.valid = true
 
 	// attempt to save the newly generated registration
 	err = r.Save()
 	if err != nil {
-		// we failed to save the registration the mark it as invalid
+		// we failed to save the registration so mark it as invalid
 		r.valid = false
 
 		return
@@ -229,6 +233,21 @@ func (r *TelemetryClientRegistration) Load() (err error) {
 		return
 	}
 
+	// validate the loaded contents
+	err = r.Valdiate()
+	if err != nil {
+		slog.Error(
+			"failed to validate client registration file contents",
+			slog.String("path", r.Path()),
+			slog.String("contents", string(bytes)),
+			slog.String("err", err.Error()),
+		)
+		return
+	}
+
+	// mark registration as valid
+	r.valid = true
+
 	slog.Debug(
 		"client registration loaded",
 		slog.String("path", r.Path()),
@@ -257,6 +276,19 @@ func (r *TelemetryClientRegistration) Remove() (err error) {
 			slog.String("err", err.Error()),
 		)
 		return fmt.Errorf("failed to os.Remove(%q): %w", r.Path(), err)
+	}
+
+	return
+}
+
+func (c *TelemetryClientRegistration) Valdiate() (err error) {
+
+	err = c.ClientRegistration.Validate()
+	if err != nil {
+		slog.Debug(
+			"client registration validation failed",
+			slog.String("err", err.Error()),
+		)
 	}
 
 	return

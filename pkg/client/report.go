@@ -33,8 +33,8 @@ func (tc *TelemetryClient) submitReportInternal(report *telemetrylib.TelemetryRe
 	}
 
 	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("Authorization", "Bearer "+tc.auth.Token.String())
-	req.Header.Add("X-Telemetry-Registration-Id", fmt.Sprintf("%d", tc.auth.RegistrationId))
+	req.Header.Add("Authorization", "Bearer "+tc.creds.AuthToken)
+	req.Header.Add("X-Telemetry-Registration-Id", fmt.Sprintf("%d", tc.creds.RegistrationId))
 
 	httpClient := http.DefaultClient
 	resp, err := httpClient.Do(req)
@@ -122,7 +122,7 @@ func (tc *TelemetryClient) submitReportRetry(
 
 			// force a (re-)registration by deleting any existing
 			// client creds bundle
-			err = tc.deleteTelemetryAuth()
+			err = tc.creds.Remove()
 			if err != nil {
 				slog.Warn(
 					"Failed to delete existing telemetry auth bundle",

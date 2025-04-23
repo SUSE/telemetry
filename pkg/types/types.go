@@ -9,6 +9,8 @@ import (
 	"hash"
 	"strings"
 	"time"
+
+	"github.com/go-playground/validator/v10"
 )
 
 // Tag is a string of the form "name" or "name=value"
@@ -146,14 +148,25 @@ func (c *ClientRegistrationHash) Match(m *ClientRegistrationHash) bool {
 
 // ClientRegistration
 type ClientRegistration struct {
-	ClientId   string `json:"clientId"`
-	SystemUUID string `json:"systemUUID"`
-	Timestamp  string `json:"timestamp"`
+	ClientId   string `json:"clientId" validate:"required,uuid4"`
+	SystemUUID string `json:"systemUUID" validate:"omitempty,gt=0,uuid"`
+	Timestamp  string `json:"timestamp" validate:"required,datetime=2006-01-02T15:04:05.999999999Z07:00"`
 }
 
 func (c *ClientRegistration) String() string {
 	bytes, _ := json.Marshal(c)
 	return string(bytes)
+}
+
+func (c *ClientRegistration) Validate() (err error) {
+	validate := validator.New()
+
+	err = validate.Struct(c)
+	if err != nil {
+		err = fmt.Errorf("client registration validation check failed: %w", err)
+	}
+
+	return
 }
 
 const DEF_INSTID_HASH_METHOD = "sha256"

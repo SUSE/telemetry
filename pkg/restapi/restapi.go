@@ -6,6 +6,7 @@ import (
 
 	telemetrylib "github.com/SUSE/telemetry/pkg/lib"
 	"github.com/SUSE/telemetry/pkg/types"
+	"github.com/go-playground/validator/v10"
 )
 
 //
@@ -25,15 +26,26 @@ func (c *ClientRegistrationRequest) String() string {
 
 // ClientRegistrationResponse is the response payload body from the server
 type ClientRegistrationResponse struct {
-	RegistrationId   int64  `json:"registrationId"`
-	AuthToken        string `json:"authToken"`
-	RegistrationDate string `json:"registrationDate"`
+	RegistrationId   int64  `json:"registrationId" validate:"required,min=1"`
+	AuthToken        string `json:"authToken" validate:"required,jwt"`
+	RegistrationDate string `json:"registrationDate" validate:"required,datetime=2006-01-02T15:04:05.999999999Z07:00"`
 }
 
 func (c *ClientRegistrationResponse) String() string {
 	bytes, _ := json.Marshal(c)
 
 	return string(bytes)
+}
+
+func (c *ClientRegistrationResponse) Validate() (err error) {
+	validate := validator.New()
+
+	err = validate.Struct(c)
+	if err != nil {
+		err = fmt.Errorf("client credentials validation check failed: %w", err)
+	}
+
+	return
 }
 
 // Client Authenticate handling via /temelemtry/authenticate

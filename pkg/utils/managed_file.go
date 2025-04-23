@@ -198,6 +198,7 @@ type FileManager interface {
 	Path() string
 	SetPath(filePath string) error
 	Exists() (bool, error)
+	Accessible() (bool, error)
 
 	// file ownership and permissions
 	User() string
@@ -393,6 +394,19 @@ func (fm *ManagedFile) SetPath(path string) (err error) {
 	}
 
 	fm.path = absPath
+	return
+}
+
+func (fm *ManagedFile) Accessible() (accessible bool, err error) {
+	if err = fm.checkPath(); err != nil {
+		return
+	}
+
+	fm.dbg("checking if managed file is accessible")
+	if _, err := os.Open(fm.Path()); err == nil {
+		accessible = true
+	}
+
 	return
 }
 

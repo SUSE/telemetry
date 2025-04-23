@@ -1,48 +1,30 @@
 package client
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/SUSE/telemetry/pkg/config"
 	telemetrylib "github.com/SUSE/telemetry/pkg/lib"
 	"github.com/SUSE/telemetry/pkg/types"
-	"github.com/SUSE/telemetry/pkg/utils"
 	"github.com/golang-jwt/jwt/v5"
 )
 
-const (
-	AUTH_NAME = "credentials"
-)
-
-// TODO: unify with restapi.ClientRegistrationResponse
-type TelemetryAuth struct {
-	// TODO: unify these fields with restapi.ClientRegistrationResponse
-	RegistrationId   int64                    `json:"registrationId"`
-	Token            types.TelemetryAuthToken `json:"authToken"`
-	RegistrationDate types.TelemetryTimeStamp `json:"registrationDate"`
-}
-
 type TelemetryClient struct {
-	cfg        *config.Config
-	reg        *TelemetryClientRegistration
-	auth       TelemetryAuth
-	authLoaded bool
-	processor  telemetrylib.TelemetryProcessor
+	cfg       *config.Config
+	reg       *TelemetryClientRegistration
+	creds     *TelemetryClientCredentials
+	processor telemetrylib.TelemetryProcessor
 }
 
-func NewTelemetryClient(cfg *config.Config) (*TelemetryClient, error) {
-	var err error
+func NewTelemetryClient(cfg *config.Config) (tc *TelemetryClient, err error) {
+	tc = &TelemetryClient{cfg: cfg}
 
-	tc := &TelemetryClient{cfg: cfg}
-
+	// create client registration manager
 	tc.reg, err = NewTelemetryClientRegistration(cfg)
 	if err != nil {
 		slog.Debug(
@@ -51,6 +33,39 @@ func NewTelemetryClient(cfg *config.Config) (*TelemetryClient, error) {
 			slog.String("err", err.Error()),
 		)
 		return nil, fmt.Errorf("failed to create a new client registration: %w", err)
+	}
+
+	// load the client registration if it exists
+	if tc.reg.Exists() {
+		if err = tc.reg.Load(); err != nil {
+			slog.Warn(
+				"failed to load existing client registration, regeneration required",
+				slog.String("registration", tc.reg.Path()),
+				slog.String("err", err.Error()),
+			)
+		}
+	}
+
+	// create client credentials manager
+	tc.creds, err = NewTelemetryClientCredentials(cfg)
+	if err != nil {
+		slog.Debug(
+			"failed to create a new client credentials",
+			slog.String("configDir", cfg.ConfigDir()),
+			slog.String("err", err.Error()),
+		)
+		return nil, fmt.Errorf("failed to create a new client credentials: %w", err)
+	}
+
+	// load the client credentials if it exists
+	if tc.creds.Exists() {
+		if err = tc.creds.Load(); err != nil {
+			slog.Warn(
+				"failed to load existing client credentials, registration required",
+				slog.String("credentials", tc.creds.Path()),
+				slog.String("err", err.Error()),
+			)
+		}
 	}
 
 	tc.processor, err = telemetrylib.NewTelemetryProcessor(&cfg.DataStores)
@@ -64,13 +79,6 @@ func NewTelemetryClient(cfg *config.Config) (*TelemetryClient, error) {
 	}
 
 	return tc, nil
-}
-
-func checkFileReadAccessible(filePath string) bool {
-	if _, err := os.Open(filePath); err != nil {
-		return false
-	}
-	return true
 }
 
 func (tc *TelemetryClient) getRegistration() (reg types.ClientRegistration, err error) {
@@ -149,19 +157,18 @@ func (tc *TelemetryClient) ensureRegistrationExists() (err error) {
 }
 
 func (tc *TelemetryClient) authParsedToken() (token *jwt.Token, err error) {
-	if !tc.authLoaded {
-		if err = tc.loadTelemetryAuth(); err != nil {
-			slog.Error(
-				"Failed to load authToken",
-				slog.String("error", err.Error()),
-			)
-			return
-		}
+	// load the client credentials
+	if err = tc.creds.Load(); err != nil {
+		slog.Error(
+			"Failed to load credentials",
+			slog.String("error", err.Error()),
+		)
+		return
 	}
 
 	// only the server can validate the signing key, so parse unverified
 	token, _, err = jwt.NewParser().ParseUnverified(
-		string(tc.auth.Token), jwt.MapClaims{},
+		string(tc.creds.AuthToken), jwt.MapClaims{},
 	)
 
 	if err != nil {
@@ -213,12 +220,12 @@ func (tc *TelemetryClient) AuthExpiration() (expiration time.Time, err error) {
 	return
 }
 
-func (tc *TelemetryClient) AuthAccessible() bool {
-	return checkFileReadAccessible(tc.AuthPath())
+func (tc *TelemetryClient) CredentialsAccessible() bool {
+	return tc.creds.Accessible()
 }
 
-func (tc *TelemetryClient) HasAuth() bool {
-	return utils.CheckPathExists(tc.AuthPath())
+func (tc *TelemetryClient) HasCredentials() bool {
+	return tc.creds.Exists()
 }
 
 func (tc *TelemetryClient) Processor() telemetrylib.TelemetryProcessor {
@@ -226,9 +233,8 @@ func (tc *TelemetryClient) Processor() telemetrylib.TelemetryProcessor {
 	return tc.processor
 }
 
-func (tc *TelemetryClient) AuthPath() string {
-	// hard coded for now, possibly make a config option
-	return filepath.Join(tc.cfg.ConfigDir(), AUTH_NAME)
+func (tc *TelemetryClient) CredentialsPath() string {
+	return tc.creds.Path()
 }
 
 func (tc *TelemetryClient) ClientId() string {
@@ -241,105 +247,6 @@ func (tc *TelemetryClient) RegistrationPath() string {
 
 func (tc *TelemetryClient) RegistrationAccessible() bool {
 	return tc.reg.Accessible()
-}
-
-func (tc *TelemetryClient) deleteTelemetryAuth() (err error) {
-	if err = os.Remove(tc.AuthPath()); err != nil {
-		slog.Error(
-			"Failed to delete existing client creds",
-			slog.String("error", err.Error()),
-		)
-		return
-	}
-
-	// clear previous in memory auth settings
-	tc.auth = TelemetryAuth{}
-	tc.authLoaded = false
-
-	return
-}
-
-func (tc *TelemetryClient) loadTelemetryAuth() (err error) {
-	authPath := tc.AuthPath()
-
-	slog.Debug("Checking auth file existence", slog.String("authPath", authPath))
-	_, err = os.Stat(authPath)
-	if os.IsNotExist(err) {
-		slog.Debug(
-			"Unable to find auth file",
-			slog.String("authPath", authPath),
-			slog.String("err", err.Error()),
-		)
-		return
-	}
-
-	authContent, err := os.ReadFile(authPath)
-	if err != nil {
-		slog.Error(
-			"failed to read contents of auth file",
-			slog.String("authPath", authPath),
-			slog.String("err", err.Error()),
-		)
-		return
-	}
-
-	err = json.Unmarshal(authContent, &tc.auth)
-	if err != nil {
-		slog.Error(
-			"failed to JSON unmarshal auth file contents",
-			slog.String("authPath", authPath),
-			slog.String("authContent", string(authContent)),
-			slog.String("err", err.Error()),
-		)
-		return
-	}
-
-	if tc.auth.RegistrationId <= 0 {
-		err = fmt.Errorf("invalid registration id")
-		slog.Error(
-			"invalid auth",
-			slog.String("authPath", authPath),
-			slog.String("authContent", string(authContent)),
-			slog.String("err", err.Error()),
-		)
-		return
-	}
-
-	if tc.auth.Token == "" {
-		err = fmt.Errorf("empty token value")
-		slog.Error(
-			"invalid auth",
-			slog.String("authPath", authPath),
-			slog.String("authContent", string(authContent)),
-			slog.String("err", err.Error()),
-		)
-		return
-	}
-
-	tc.authLoaded = true
-
-	return
-}
-
-func (tc *TelemetryClient) saveTelemetryAuth() (err error) {
-	authPath := tc.AuthPath()
-
-	taJSON, err := json.Marshal(&tc.auth)
-	if err != nil {
-		slog.Error("failed to JSON marshal TelemetryAuth", slog.String("err", err.Error()))
-		return
-	}
-
-	err = os.WriteFile(authPath, taJSON, 0600)
-	if err != nil {
-		slog.Error(
-			"failed to write JSON marshalled TelemetryAuth",
-			slog.String("authPath", authPath),
-			slog.String("err", err.Error()),
-		)
-	}
-
-	return
 }
 
 func errClientNotAuthorized() error {
@@ -532,8 +439,7 @@ func (tc *TelemetryClient) CreateReports(tags types.Tags) (err error) {
 
 func (tc *TelemetryClient) Submit() (err error) {
 	// fail if the client is not registered
-
-	err = tc.loadTelemetryAuth()
+	err = tc.creds.Load()
 	if err != nil {
 		return
 	}

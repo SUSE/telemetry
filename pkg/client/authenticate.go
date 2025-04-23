@@ -9,7 +9,6 @@ import (
 	"net/http"
 
 	"github.com/SUSE/telemetry/pkg/restapi"
-	"github.com/SUSE/telemetry/pkg/types"
 )
 
 // Authenticate is responsible for (re)authenticating an already registered
@@ -21,17 +20,17 @@ func (tc *TelemetryClient) Authenticate() (err error) {
 		return
 	}
 
-	if err = tc.loadTelemetryAuth(); err != nil {
+	// confirm that credentials already exist
+	if !tc.creds.Valid() {
 		return fmt.Errorf(
-			"telemetry client (re-)authentication requires an existing "+
-				"client registration: %s",
-			err.Error(),
+			"telemetry client (re-)authentication requires an existing " +
+				"set of client credentials",
 		)
 	}
 
 	// assemble the authentication request
 	caReq := restapi.ClientAuthenticationRequest{
-		RegistrationId: tc.auth.RegistrationId,
+		RegistrationId: tc.creds.RegistrationId,
 		RegHash:        *regId.Hash("default"),
 	}
 
@@ -77,11 +76,45 @@ func (tc *TelemetryClient) Authenticate() (err error) {
 		return
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		err = fmt.Errorf("client authentication failed: %s", string(respBody))
+	// check the response status code, and handle appropriately
+	switch resp.StatusCode {
+	case http.StatusOK:
+		// all good, nothing to do
+		slog.Debug(
+			"Authentication request succeeded",
+			slog.Int("StatusCode", resp.StatusCode),
+		)
+
+	case http.StatusUnauthorized:
+		slog.Debug(
+			"StatusUnauthorized returned",
+			slog.Int("StatusCode", resp.StatusCode),
+			slog.String("error", string(respBody)),
+		)
+		// retry if a unregistered client authentication attempt is detected
+		if tc.reg.RetriesEnabled() {
+			slog.Warn(
+				"Unregistered client authentication detected, forcing registration",
+			)
+
+			// delete the existing creds, and trigger a registration attempty
+			tc.creds.Remove()
+
+			// disable further retries
+			tc.creds.DisableRetries()
+
+			// retry client registration
+			return tc.Register()
+		}
+		fallthrough
+
+	default:
+		// unhandled error so fail appropriately
+		err = fmt.Errorf("client registration failed: %s", string(respBody))
 		return
 	}
 
+	// extract the creds from the response and save them
 	var caResp restapi.ClientAuthenticationResponse
 	err = json.Unmarshal(respBody, &caResp)
 	if err != nil {
@@ -92,22 +125,11 @@ func (tc *TelemetryClient) Authenticate() (err error) {
 		return
 	}
 
-	tc.auth.RegistrationId = caResp.RegistrationId
-	tc.auth.Token = types.TelemetryAuthToken(caResp.AuthToken)
-	tc.auth.RegistrationDate, err = types.TimeStampFromString(caResp.RegistrationDate)
+	// save the extracted creds
+	err = tc.creds.UpdateCreds(&caResp)
 	if err != nil {
 		slog.Error(
-			"failed to parse registrationDate as a timestamp",
-			slog.String("registrationDate", caResp.RegistrationDate),
-			slog.String("err", err.Error()),
-		)
-		return
-	}
-
-	err = tc.saveTelemetryAuth()
-	if err != nil {
-		slog.Error(
-			"failed to save TelemetryAuth",
+			"failed to updated client credentials",
 			slog.String("err", err.Error()),
 		)
 		return
@@ -115,7 +137,7 @@ func (tc *TelemetryClient) Authenticate() (err error) {
 
 	slog.Debug(
 		"successfully authenticated",
-		slog.Int64("registrationId", tc.auth.RegistrationId),
+		slog.Int64("registrationId", tc.creds.RegistrationId),
 	)
 
 	return

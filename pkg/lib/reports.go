@@ -103,7 +103,7 @@ type TelemetryReportHeader struct {
 	// NOTE: omitempty option used in json tags to support generating test scenarios
 	ReportId          string   `json:"reportId,omitempty" validate:"required,uuid4"`
 	ReportTimeStamp   string   `json:"reportTimeStamp" validate:"required"`
-	ReportClientId    string   `json:"reportClientId,omitempty" validate:"required,uuid4"`
+	ReportClientId    string   `json:"reportClientId" validate:"required,uuid4"`
 	ReportAnnotations []string `json:"reportAnnotations,omitempty"`
 }
 
