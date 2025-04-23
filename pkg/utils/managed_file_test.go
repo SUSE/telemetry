@@ -52,8 +52,6 @@ func (t *FileManagerTestSuite) SkipIfRoot() {
 }
 
 func (t *FileManagerTestSuite) Test_Paths() {
-	var accessible bool
-
 	// use a common test file path
 	filename := filepath.Join(t.tmpDir, "test_file")
 
@@ -87,6 +85,31 @@ func (t *FileManagerTestSuite) Test_Paths() {
 
 	err = fm.UseExistingFile(filename)
 	t.NoError(err, "fm.UseExistingFile() should work")
+}
+
+func (t *FileManagerTestSuite) Test_Accessible() {
+	t.SkipIfRoot()
+
+	var accessible bool
+	var err error
+
+	// use a common test file path
+	filename := filepath.Join(t.tmpDir, "test_file")
+
+	fm := NewManagedFile()
+	defer fm.Close()
+
+	// create a managed file
+	err = fm.Init(
+		filename,
+		"",
+		"",
+		0600,
+	)
+	t.NoError(err, "fm.Init() with absolute path")
+
+	err = fm.Create()
+	t.NoError(err, "fm.Create() should work")
 
 	accessible, err = fm.Accessible()
 	t.NoError(err, "accessibility check should have worked")
