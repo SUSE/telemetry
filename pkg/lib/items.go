@@ -16,7 +16,7 @@ type TelemetryDataItem struct {
 	// NOTE: omitempty option used in json tags to support generating test scenarios
 	Header        TelemetryDataItemHeader `json:"header"  validate:"required"`
 	TelemetryData json.RawMessage         `json:"telemetryData"  validate:"required,dive"`
-	Footer        TelemetryDataItemFooter `json:"footer,omitempty" validate:"required"`
+	Footer        TelemetryDataItemFooter `json:"footer,omitempty" validate:"omitempty"`
 }
 
 func (tdi *TelemetryDataItem) UpdateChecksum() (err error) {
