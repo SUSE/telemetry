@@ -300,9 +300,12 @@ func Status() (status ClientStatus) {
 	// update status to indicate client has registration
 	status = CLIENT_REGISTRATION_ACCESSIBLE
 
-	// check that we have obtained a telemetry auth token
-	if !tc.AuthAccessible() {
-		slog.Warn("Telemetry client has not been registered", slog.String("path", tc.AuthPath()))
+	// check that we have obtained telemetry client credentials
+	if !tc.CredentialsAccessible() {
+		slog.Warn(
+			"Telemetry client has not been registered",
+			slog.String("path", tc.CredentialsPath()),
+		)
 		return
 	}
 

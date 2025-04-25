@@ -19,5 +19,17 @@ jobs:
         with:
           path: telemetry
 
-      - name: Run tests in verbose mode
-        run: cd telemetry && make test-verbose
+      - name: Run tests in verbose mode as non-root testuser
+        run: |
+          set -eu
+
+          testuser=${TESTUSER:-susetelm}
+          echo Creating ${testuser} account
+          useradd -m -U -s /bin/bash ${testuser}
+
+          echo Changing ownership of directories accessed by the test
+          chown -R ${testuser}:${testuser} telemetry /go
+
+          echo Running tests as ${testuser}
+          cd telemetry
+          runuser -u ${testuser} make test-verbose

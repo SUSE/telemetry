@@ -9,7 +9,6 @@ import (
 	"net/http"
 
 	"github.com/SUSE/telemetry/pkg/restapi"
-	"github.com/SUSE/telemetry/pkg/types"
 )
 
 func (tc *TelemetryClient) Register() (err error) {
@@ -19,10 +18,12 @@ func (tc *TelemetryClient) Register() (err error) {
 		return
 	}
 
-	// get the saved TelemetryAuth, returning success if found
-	err = tc.loadTelemetryAuth()
-	if err == nil {
-		slog.Debug("telemetry auth found, client already registered, skipping", slog.Int64("registrationId", tc.auth.RegistrationId))
+	// if credentials are valid, the client is already registered
+	if tc.creds.Valid() {
+		slog.Debug(
+			"valid existing credentials loaded, client already registered, skipping",
+			slog.Int64("registrationId", tc.creds.RegistrationId),
+		)
 		return
 	}
 
@@ -116,24 +117,11 @@ func (tc *TelemetryClient) Register() (err error) {
 		return
 	}
 
-	tc.auth.RegistrationId = crResp.RegistrationId
-	tc.auth.Token = types.TelemetryAuthToken(crResp.AuthToken)
-	tc.auth.RegistrationDate, err = types.TimeStampFromString(crResp.RegistrationDate)
+	err = tc.creds.UpdateCreds(&crResp)
 	if err != nil {
 		slog.Error(
-			"failed to parse registrationDate as a timestamp",
-			slog.String("registrationDate", crResp.RegistrationDate),
-			slog.String("err", err.Error()),
-		)
-		return
-	}
-
-	tc.authLoaded = true
-
-	err = tc.saveTelemetryAuth()
-	if err != nil {
-		slog.Error(
-			"failed to save TelemetryAuth",
+			"failed to update client credentials",
+			slog.String("path", tc.creds.Path()),
 			slog.String("err", err.Error()),
 		)
 		return
@@ -141,7 +129,7 @@ func (tc *TelemetryClient) Register() (err error) {
 
 	slog.Debug(
 		"successfully registered as client",
-		slog.Int64("registrationId", tc.auth.RegistrationId),
+		slog.Int64("registrationId", tc.creds.RegistrationId),
 	)
 
 	return nil

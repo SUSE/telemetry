@@ -55,7 +55,7 @@ func (t *FileManagerTestSuite) Test_Paths() {
 	// use a common test file path
 	filename := filepath.Join(t.tmpDir, "test_file")
 
-	t.False(CheckPathExists(filename), "test file shouldn't exist yet")
+	t.False(CheckPathExists(filename), "test_file shouldn't exist yet")
 
 	fm := NewManagedFile()
 	defer fm.Close()
@@ -81,10 +81,46 @@ func (t *FileManagerTestSuite) Test_Paths() {
 	err = fm.Create()
 	t.NoError(err, "fm.Create() should work")
 
-	t.True(CheckPathExists(filename), "test file should exist now")
+	t.True(CheckPathExists(filename), "test_file should exist now")
 
 	err = fm.UseExistingFile(filename)
 	t.NoError(err, "fm.UseExistingFile() should work")
+}
+
+func (t *FileManagerTestSuite) Test_Accessible() {
+	t.SkipIfRoot()
+
+	var accessible bool
+	var err error
+
+	// use a common test file path
+	filename := filepath.Join(t.tmpDir, "test_file")
+
+	fm := NewManagedFile()
+	defer fm.Close()
+
+	// create a managed file
+	err = fm.Init(
+		filename,
+		"",
+		"",
+		0600,
+	)
+	t.NoError(err, "fm.Init() with absolute path")
+
+	err = fm.Create()
+	t.NoError(err, "fm.Create() should work")
+
+	accessible, err = fm.Accessible()
+	t.NoError(err, "accessibility check should have worked")
+	t.True(accessible, "test_file should be accessible")
+
+	err = os.Chmod(fm.Path(), 0000)
+	t.NoError(err, "chmod'ing test_file file to be inaccessible")
+
+	accessible, err = fm.Accessible()
+	t.NoError(err, "accessibility check should have worked")
+	t.False(accessible, "test_file shouldn't be accessible")
 }
 
 func (t *FileManagerTestSuite) Test_InitUserGroup() {

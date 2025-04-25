@@ -90,7 +90,7 @@ type TelemetryBundleHeader struct {
 	// NOTE: omitempty option used in json tags to support generating test scenarios
 	BundleId          string   `json:"bundleId,omitempty" validate:"required,uuid4"`
 	BundleTimeStamp   string   `json:"bundleTimeStamp" validate:"required"`
-	BundleClientId    string   `json:"bundleClientId,omitempty" validate:"required,uuid4"`
+	BundleClientId    string   `json:"bundleClientId" validate:"required,uuid4"`
 	BundleCustomerId  string   `json:"bundleCustomerId" validate:"omitempty"`
 	BundleAnnotations []string `json:"bundleAnnotations,omitempty"`
 }
