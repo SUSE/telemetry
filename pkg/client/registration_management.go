@@ -234,7 +234,7 @@ func (r *TelemetryClientRegistration) Load() (err error) {
 	}
 
 	// validate the loaded contents
-	err = r.Valdiate()
+	err = r.Validate()
 	if err != nil {
 		slog.Error(
 			"failed to validate client registration file contents",
@@ -281,7 +281,7 @@ func (r *TelemetryClientRegistration) Remove() (err error) {
 	return
 }
 
-func (c *TelemetryClientRegistration) Valdiate() (err error) {
+func (c *TelemetryClientRegistration) Validate() (err error) {
 
 	err = c.ClientRegistration.Validate()
 	if err != nil {

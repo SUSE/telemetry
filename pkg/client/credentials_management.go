@@ -226,7 +226,7 @@ func (c *TelemetryClientCredentials) Load() (err error) {
 	}
 
 	// validate the loaded contents
-	err = c.Valdiate()
+	err = c.Validate()
 	if err != nil {
 		slog.Error(
 			"failed to validate client credentials file contents",
@@ -273,7 +273,7 @@ func (c *TelemetryClientCredentials) Remove() (err error) {
 	return
 }
 
-func (c *TelemetryClientCredentials) Valdiate() (err error) {
+func (c *TelemetryClientCredentials) Validate() (err error) {
 
 	err = c.TelemetryCreds.Validate()
 	if err != nil {
