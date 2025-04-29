@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/SUSE/telemetry/pkg/types"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -177,7 +176,7 @@ class_options:
 	t.Require().NoError(tmpfile.Close())
 
 	config, err := NewConfig(tmpfile.Name())
-	require.NoError(t.T(), err)
+	t.Require().NoError(err)
 
 	t.Equal(url, config.TelemetryBaseURL, "TelemetryBaseURL value is not the expected")
 	t.Equal(driver, config.DataStores.Driver, "DataStores.Driver is not the expected")
