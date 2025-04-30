@@ -148,8 +148,8 @@ func (c *ClientRegistrationHash) Match(m *ClientRegistrationHash) bool {
 
 // ClientRegistration
 type ClientRegistration struct {
-	ClientId   string `json:"clientId" validate:"required,uuid4"`
-	SystemUUID string `json:"systemUUID" validate:"omitempty,gt=0,uuid"`
+	ClientId   string `json:"clientId" validate:"required,uuid|uuid_rfc4122"`
+	SystemUUID string `json:"systemUUID" validate:"omitempty,gt=0,uuid|uuid_rfc4122"`
 	Timestamp  string `json:"timestamp" validate:"required,datetime=2006-01-02T15:04:05.999999999Z07:00"`
 }
 

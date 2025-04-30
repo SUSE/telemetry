@@ -101,9 +101,9 @@ func NewTelemetryReport(clientId string, tags types.Tags) (*TelemetryReport, err
 
 type TelemetryReportHeader struct {
 	// NOTE: omitempty option used in json tags to support generating test scenarios
-	ReportId          string   `json:"reportId,omitempty" validate:"required,uuid4"`
+	ReportId          string   `json:"reportId,omitempty" validate:"required,uuid|uuid_rfc4122"`
 	ReportTimeStamp   string   `json:"reportTimeStamp" validate:"required"`
-	ReportClientId    string   `json:"reportClientId" validate:"required,uuid4"`
+	ReportClientId    string   `json:"reportClientId" validate:"required,uuid|uuid_rfc4122"`
 	ReportAnnotations []string `json:"reportAnnotations,omitempty"`
 }
 

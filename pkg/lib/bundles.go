@@ -88,9 +88,9 @@ func NewTelemetryBundle(clientId string, customerId string, tags types.Tags) (*T
 
 type TelemetryBundleHeader struct {
 	// NOTE: omitempty option used in json tags to support generating test scenarios
-	BundleId          string   `json:"bundleId,omitempty" validate:"required,uuid4"`
+	BundleId          string   `json:"bundleId,omitempty" validate:"required,uuid|uuid_rfc4122"`
 	BundleTimeStamp   string   `json:"bundleTimeStamp" validate:"required"`
-	BundleClientId    string   `json:"bundleClientId" validate:"required,uuid4"`
+	BundleClientId    string   `json:"bundleClientId" validate:"required,uuid|uuid_rfc4122"`
 	BundleCustomerId  string   `json:"bundleCustomerId" validate:"omitempty"`
 	BundleAnnotations []string `json:"bundleAnnotations,omitempty"`
 }
