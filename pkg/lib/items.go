@@ -71,7 +71,7 @@ func NewTelemetryDataItem(telemetry types.TelemetryType, tags types.Tags, conten
 }
 
 type TelemetryDataItemHeader struct {
-	TelemetryId          string   `json:"telemetryId"  validate:"required,uuid4"`
+	TelemetryId          string   `json:"telemetryId"  validate:"required,uuid|uuid_rfc4122"`
 	TelemetryTimeStamp   string   `json:"telemetryTimeStamp"  validate:"required"`
 	TelemetryType        string   `json:"telemetryType"  validate:"required,min=5"`
 	TelemetryAnnotations []string `json:"telemetryAnnotations,omitempty"`
