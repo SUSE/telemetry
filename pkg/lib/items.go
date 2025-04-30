@@ -28,6 +28,11 @@ func (tdi *TelemetryDataItem) UpdateChecksum() (err error) {
 }
 
 func (tdi *TelemetryDataItem) VerifyChecksum() (err error) {
+	// data item checksums optional, so skip if not specified
+	if tdi.Footer.Checksum == "" {
+		return
+	}
+
 	checksum, err := utils.GetMd5Hash(&tdi.TelemetryData)
 	if err != nil {
 		err = fmt.Errorf("failed to generate data item checksum: %w", err)
