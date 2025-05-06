@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash"
+	"regexp"
 	"strings"
 	"time"
 
@@ -132,14 +133,52 @@ func (tc *TelemetryClass) String() string {
 }
 
 type ClientRegistrationHash struct {
-	Method string `json:"method"`
-	Value  string `json:"value"`
+	Method string `json:"method" validate:"required,oneof=sha256 sha512"`
+	Value  string `json:"value" validate:"required,sha256|sha512"`
 }
 
 func (c *ClientRegistrationHash) String() string {
 	bytes, _ := json.Marshal(c)
 
 	return string(bytes)
+}
+
+func hashRegExp(bits int64) *regexp.Regexp {
+	return regexp.MustCompile(
+		fmt.Sprintf(`^[0-9a-f]{%d}$`, bits/4),
+	)
+}
+
+func hashValidator(bits int64) validator.Func {
+	return func(fl validator.FieldLevel) bool {
+		return hashRegExp(bits).MatchString(
+			fl.Field().String(),
+		)
+	}
+}
+
+func (c *ClientRegistrationHash) Validate() (err error) {
+	validate := validator.New()
+
+	// define custom validators for SHA hashes
+	shaLens := []int64{
+		256,
+		512,
+	}
+	for _, bits := range shaLens {
+		method := fmt.Sprintf("sha%d", bits)
+		err = validate.RegisterValidation(method, hashValidator(bits))
+		if err != nil {
+			return fmt.Errorf("failed to register %q hash validator: %w", method, err)
+		}
+	}
+
+	err = validate.Struct(c)
+	if err != nil {
+		err = fmt.Errorf("client registration hash validation check failed: %w", err)
+	}
+
+	return
 }
 
 func (c *ClientRegistrationHash) Match(m *ClientRegistrationHash) bool {
@@ -159,7 +198,7 @@ func (c *ClientRegistration) String() string {
 }
 
 func (c *ClientRegistration) Validate() (err error) {
-	validate := validator.New()
+	validate := validator.New(validator.WithRequiredStructEnabled())
 
 	err = validate.Struct(c)
 	if err != nil {

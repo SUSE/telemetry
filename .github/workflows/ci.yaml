@@ -30,6 +30,6 @@ jobs:
           echo Changing ownership of directories accessed by the test
           chown -R ${testuser}:${testuser} telemetry /go
 
-          echo Running tests as ${testuser}
+          echo Running tests as ${testuser}: $(id ${testuser})
           cd telemetry
-          runuser -u ${testuser} make test-verbose
+          runuser -u ${testuser} -- make test-verbose

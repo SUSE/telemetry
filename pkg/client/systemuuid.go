@@ -3,6 +3,7 @@ package client
 import (
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/SUSE/telemetry/pkg/utils"
 )
@@ -39,5 +40,5 @@ func getSystemUUID() string {
 	}
 
 	// return the retrieved system uuid
-	return string(uuid)
+	return strings.TrimSpace(string(uuid))
 }
