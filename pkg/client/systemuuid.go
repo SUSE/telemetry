@@ -39,8 +39,6 @@ func getSystemUUID() string {
 		return ""
 	}
 
-	slog.Info("Retrieved", slog.String("systemUUID", string(uuid)))
-
 	// return the retrieved system uuid
 	return strings.TrimSpace(string(uuid))
 }
