@@ -30,6 +30,8 @@ jobs:
           echo Changing ownership of directories accessed by the test
           chown -R ${testuser}:${testuser} telemetry /go
 
-          echo Running tests as ${testuser}
+          echo SystemUUID: $(cat /sys/class/dmi/id/product_uuid)
+
+          echo Running tests as ${testuser}: $(id ${testuser})
           cd telemetry
           runuser -u ${testuser} make test-verbose
