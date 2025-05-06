@@ -34,4 +34,5 @@ jobs:
 
           echo Running tests as ${testuser}: $(id ${testuser})
           cd telemetry
+          runuser -u ${testuser} -- bash -c 'echo SystemUUID:$(cat /sys/class/dmi/id/product_uuid)'
           runuser -u ${testuser} make test-verbose
