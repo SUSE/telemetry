@@ -1,0 +1,21 @@
+{
+  "version": 123,
+  "telemetry": {
+    "one": "thing",
+    "another": "thing",
+    "something": "else",
+    "data": {
+      "type": "base64",
+      "value": {
+        "line1": "apkvqPhs/AJ7zFBLEdSgLO1TbssCU/E624avftr5973x93jcssokT6glkrBbJ75A635Yq9NsOPkS",
+        "line2": "ffF6nOQufhvdCRuIDWXDFtUDzQxH1z1XZWEoxadHHI9W+fFfWfdTzcPRG7nly+u4yJ4c7pDnVjjJ",
+        "line3": "ubUaFm9Ieu5Tnw4j2aR3oOmEfsczkmY2pVYBQuCg2Um3KNSg79RWLiol767JQzSuhDHxWRQoS8C2",
+        "line4": "VRZhJbNGOAScN6zrLsNKJqyBl7sBZo+uvh0diHpF5MfypYTmxO+p9B13U0OfT1hsLhH6wwDb+bre",
+        "line5": "t655aVmsv3bc5RhLmTU4PfGY8FSMa6R713pVLc4UcCTtfVfwgv75TFVif1dlukYECBAcYM3Qcfu7",
+        "line6": "9MfHxxz726EBIqaK/R7ZkHixx1Jhh21GWsgwzvll1AI7RTSaK0MrBv7evccJmV42pGh4tnRlAEKm",
+        "line7": "ip+37y5WEAUkDu9O5/YJ5baybvbCQiyCmeQ1O4R55vBmu3yhv3/HidLpZswcmkWf0zMA+EFaWd3A",
+        "line8": "9mt2jtKjouOyXbwH3G6h0LvY227jgPLZ3ept5o/09oAg2uV7prcE61TUetAaDlck55kTwoDg0dTj"
+      }
+    }
+  }
+}

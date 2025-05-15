@@ -2,15 +2,62 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log/slog"
+	"os"
 
 	"github.com/SUSE/telemetry"
 )
 
-func status_check_example() {
+func telemetry_ready_check() {
 	status := telemetry.Status()
-	slog.Info("Telemetry Client", slog.String("status", status.String()))
+
+	// if the client is ready then return
+	if status.Ready() {
+		goto clientReady
+	}
+
+	// if telemetry is disabled, exit with success
+	if status.Disabled() {
+		slog.Info(
+			"Telemetry client disabled, exiting",
+			slog.String("status", status.String()),
+		)
+		os.Exit(0)
+	}
+
+	// attempt to register if needed
+	if status.RegistrationRequired() {
+		slog.Warn(
+			"Telemetry client registration required",
+			slog.String("status", status.String()),
+		)
+		if err := telemetry.Register(); err != nil {
+			slog.Error(
+				"Failed to register as telemetry client",
+				slog.String("error", err.Error()),
+			)
+			os.Exit(1)
+		}
+		slog.Info("Telemetry client registered")
+		status = telemetry.Status()
+	}
+
+	// exit if the client is not ready
+	if !status.Ready() {
+		slog.Error(
+			"Telemetry client not ready",
+			slog.String("status", status.String()),
+		)
+		os.Exit(1)
+	}
+
+clientReady:
+	slog.Info(
+		"Telemetry client ready",
+		slog.String("status", status.String()),
+	)
 }
 
 type SomeTelemetryType struct {
@@ -46,7 +93,7 @@ func telemetry_content() []byte {
 	return content
 }
 
-func generate_telemetry_example() {
+func telemetry_generate() {
 	telemetryType := telemetry.TelemetryType("SOME-TELEMETRY-TYPE")
 	class := telemetry.MANDATORY_TELEMETRY
 	content := telemetry_content()
@@ -79,10 +126,35 @@ func generate_telemetry_example() {
 			slog.String("flags", flags.String()),
 			slog.String("error", err.Error()),
 		)
+		os.Exit(1)
 	}
 }
 
+type options struct {
+	config string
+}
+
+func parse_opts(opts *options) {
+	flag.StringVar(&opts.config, "config", telemetry.DefaultConfigPath(), "Path to alternate config file")
+	flag.Parse()
+}
+
 func main() {
-	status_check_example()
-	generate_telemetry_example()
+	// parse the config option if specified
+	opts := new(options)
+	parse_opts(opts)
+	if opts.config != telemetry.DefaultConfigPath() {
+		// tell the telemetry library to use specified config file
+		slog.Info(
+			"Setting customer telemetry config path",
+			slog.String("config", opts.config),
+		)
+		telemetry.SetConfigPath(opts.config)
+	}
+
+	// verify that the telemetry subsystem is ready to use
+	telemetry_ready_check()
+
+	// generate and submit telemetry
+	telemetry_generate()
 }

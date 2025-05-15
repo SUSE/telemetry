@@ -11,6 +11,9 @@ type TelemetryCommon interface {
 	// cleanup contents, for testing support
 	cleanup() error
 
+	// Whether the datastore is persistent or not
+	Persistent() bool
+
 	// Get a count of telemetry data items that are not associated with a bundle
 	ItemCount(bundleIds ...any) (int, error)
 
@@ -51,6 +54,11 @@ func (t *TelemetryCommonImpl) setup(cfg *config.DBConfig) (err error) {
 func (t *TelemetryCommonImpl) cleanup() (err error) {
 	err = t.storer.dropTables()
 	return
+}
+
+func (t *TelemetryCommonImpl) Persistent() bool {
+	// whether the datastore is persistent or not
+	return t.storer.Persistent()
 }
 
 func (t *TelemetryCommonImpl) ItemCount(bundleIds ...any) (count int, err error) {

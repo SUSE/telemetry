@@ -60,6 +60,10 @@ func (gf GenerateFlags) IsFlagSet(flag GenerateFlags) bool {
 	return (gf & flag) == flag
 }
 
+func (gf *GenerateFlags) SetFlag(flag GenerateFlags) {
+	*gf = (*gf & flag)
+}
+
 func (gf *GenerateFlags) String() string {
 	flags := "GENERATE"
 	switch {
@@ -74,6 +78,10 @@ func (gf *GenerateFlags) String() string {
 
 func (gf GenerateFlags) SubmitRequested() bool {
 	return gf.IsFlagSet(SUBMIT)
+}
+
+func (gf *GenerateFlags) SetSubmitRequested() {
+	gf.SetFlag(SUBMIT)
 }
 
 //
@@ -115,11 +123,24 @@ func (cs *ClientStatus) String() string {
 	return "UNKNOWN_TELEMETRY_CLIENT_STATUS"
 }
 
+func (cs ClientStatus) RegistrationRequired() bool {
+	return ((cs == CLIENT_DATASTORE_ACCESSIBLE) ||
+		(cs == CLIENT_REGISTRATION_ACCESSIBLE))
+}
+
+func (cs ClientStatus) Disabled() bool {
+	return (cs == CLIENT_DISABLED)
+}
+
+func (cs ClientStatus) Ready() bool {
+	return (cs == CLIENT_REGISTERED)
+}
+
 //
 // Helper routines
 //
 
-func getClientConfig() (cfg *config.Config, err error) {
+func getTelemetryConfig() (cfg *config.Config, err error) {
 	// attempt to load the active config
 	cfg, err = config.NewConfig(activeConfigPath)
 	if err != nil {
@@ -137,6 +158,75 @@ func getClientConfig() (cfg *config.Config, err error) {
 	}
 
 	return cfg, nil
+}
+
+//
+// Internal helper routines
+//
+
+func getTelemetryClient(cfg *config.Config) (tc *client.TelemetryClient, err error) {
+	// instantiate a telemetry client
+	newtc, err := client.NewTelemetryClient(cfg)
+	if err != nil {
+		slog.Warn(
+			"Failed to instantiate a TelemetryClient",
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+
+	tc = newtc
+
+	return
+}
+
+func registerClient(cfg *config.Config) (tc *client.TelemetryClient, err error) {
+	// get a telemetry client
+	tc, err = getTelemetryClient(cfg)
+	if err != nil {
+		return
+	}
+
+	// trigger registration of the client
+	err = tc.Register()
+	if err != nil {
+		slog.Warn(
+			"Failed to register TelemetryClient with upstream server",
+			slog.String("error", err.Error()),
+		)
+		return
+	}
+
+	return
+}
+
+//
+// Telemetry Registration
+//
+
+func Register() (err error) {
+
+	// attempt to load the active config file
+	cfg, err := getTelemetryConfig()
+	if err != nil {
+		return
+	}
+
+	// check if the telemetry client is enabled in config
+	if !cfg.Enabled {
+		slog.Warn("The telemetry client is disabled in the configuration; no registration attempted")
+		return
+	}
+
+	_, err = registerClient(cfg)
+	if err != nil {
+		slog.Error(
+			"Failed to register telemetry client",
+			slog.String("error", err.Error()),
+		)
+	}
+
+	return err
 }
 
 //
@@ -171,7 +261,7 @@ func Generate(
 	}
 
 	// attempt to load the active config file
-	cfg, err := getClientConfig()
+	cfg, err := getTelemetryConfig()
 	if err != nil {
 		return
 	}
@@ -200,24 +290,18 @@ func Generate(
 		return
 	}
 
-	// instantiate a telemetry client
-	tc, err := client.NewTelemetryClient(cfg)
+	// get a telemetry client
+	tc, err := getTelemetryClient(cfg)
 	if err != nil {
-		slog.Warn(
-			"Failed to instantiate a TelemetryClient",
-			slog.String("error", err.Error()),
-		)
 		return
 	}
 
-	// ensure the client is registered
-	err = tc.Register()
-	if err != nil {
+	// if datastore is not persistent, set the SubmitRequested flag
+	if !tc.PersistentDatastore() {
 		slog.Warn(
-			"Failed to register TelemetryClient with upstream server",
-			slog.String("error", err.Error()),
+			"Non-persistent telemetry client datastore requires immediate submission",
 		)
-		return
+		flags.SetSubmitRequested()
 	}
 
 	// generate the telemetry, storing it in the local data store
@@ -229,11 +313,66 @@ func Generate(
 		)
 		return
 	}
+	slog.Info("Telemetry generation successful")
 
 	// check if immediate submission requested
 	if flags.SubmitRequested() {
-		// TODO: implement immediate submission
-		slog.Info("Immediate Telemetry Submission requested")
+		slog.Info("Telemetry submission required")
+		if err = submitTelemetry(tc); err != nil {
+			slog.Error(
+				"Failed to submit telemetry",
+				slog.String("url", tc.ServerURL()),
+				slog.String("error", err.Error()),
+			)
+		}
+		slog.Info("Telemetry submission successful")
+		return
+	}
+
+	return
+}
+
+func submitTelemetry(tc *client.TelemetryClient) (err error) {
+
+	// generate bundles containing any staged data items,
+	// including any tags specified in the config file
+	if err = tc.CreateBundles(tc.ConfigTags()); err != nil {
+		slog.Debug(
+			"Failed to create bundles",
+			slog.String("err", err.Error()),
+		)
+		err = fmt.Errorf(
+			"failed to create bundles: %w",
+			err,
+		)
+		return
+	}
+
+	// generate reports containing generated bundles, with
+	// an empty set of report tags
+	if err = tc.CreateReports(types.Tags{}); err != nil {
+		slog.Debug(
+			"Failed to create reports",
+			slog.String("err", err.Error()),
+		)
+		err = fmt.Errorf(
+			"failed to create reports: %w",
+			err,
+		)
+		return
+	}
+
+	// submit generated reports
+	if err = tc.Submit(); err != nil {
+		slog.Debug(
+			"Failed to submit reports",
+			slog.String("err", err.Error()),
+		)
+		err = fmt.Errorf(
+			"failed to submit reports: %w",
+			err,
+		)
+		return
 	}
 
 	return
@@ -263,7 +402,7 @@ func Status() (status ClientStatus) {
 	}
 
 	// attempt to load the active config
-	cfg, err = getClientConfig()
+	cfg, err = getTelemetryConfig()
 	if err != nil {
 		return
 	}
@@ -277,8 +416,8 @@ func Status() (status ClientStatus) {
 		return CLIENT_DISABLED
 	}
 
-	// instantiate a telemetry client using provided config
-	tc, err = client.NewTelemetryClient(cfg)
+	// get a telemetry client
+	tc, err = getTelemetryClient(cfg)
 	if err != nil {
 		slog.Error(
 			"Failed to setup telemetry client using provided config",
@@ -321,7 +460,7 @@ func Status() (status ClientStatus) {
 
 func GetTelemetryClientId() (clientId string, err error) {
 	// attempt to load the active config
-	cfg, err := getClientConfig()
+	cfg, err := getTelemetryConfig()
 	if err != nil {
 		return
 	}
@@ -331,7 +470,7 @@ func GetTelemetryClientId() (clientId string, err error) {
 
 func UpdateTelemetryClientId(clientId string) (err error) {
 	// attempt to load the active config
-	cfg, err := getClientConfig()
+	cfg, err := getTelemetryConfig()
 	if err != nil {
 		return
 	}
@@ -362,7 +501,7 @@ func UpdateTelemetryClientId(clientId string) (err error) {
 
 func GetTelemetryCustomerId() (clientId string, err error) {
 	// attempt to load the active config
-	cfg, err := getClientConfig()
+	cfg, err := getTelemetryConfig()
 	if err != nil {
 		return
 	}
@@ -372,7 +511,7 @@ func GetTelemetryCustomerId() (clientId string, err error) {
 
 func UpdateTelemetryCustomerId(customerId string) (err error) {
 	// attempt to load the active config
-	cfg, err := getClientConfig()
+	cfg, err := getTelemetryConfig()
 	if err != nil {
 		return
 	}

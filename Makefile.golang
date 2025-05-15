@@ -2,7 +2,7 @@ GO_COVERAGE_PROFILE ?= /tmp/.coverage.telemetry.out
 
 GO_NO_PROXY = github.com/SUSE
 
-.PHONY: fmt vet build build-only clean test-clean test-verbose test-coverage mod-tidy mod-update test-mod-update
+.PHONY: fmt vet build build-only clean test-clean test-verbose test-coverage mod-tidy mod-download mod-update test-mod-update
 
 fmt:
 	go fmt ./...
@@ -15,7 +15,7 @@ build-only:
 
 build: vet build-only
 
-clean: test-clean
+clean:: test-clean
 	go clean ./...
 
 test-clean:
@@ -29,7 +29,12 @@ test-verbose: test-clean build
 	go tool cover --func=$(GO_COVERAGE_PROFILE)
 
 mod-tidy:
-	go mod tidy
+	export GONOPROXY=${GO_NO_PROXY} && \
+	go mod tidy -x
+
+mod-download:
+	export GONOPROXY=${GO_NO_PROXY} && \
+	go mod download -x
 
 mod-update:
 	[ -e go.mod ] || exit 0; \

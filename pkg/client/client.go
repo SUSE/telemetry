@@ -220,6 +220,16 @@ func (tc *TelemetryClient) AuthExpiration() (expiration time.Time, err error) {
 	return
 }
 
+func (tc *TelemetryClient) ConfigTags() types.Tags {
+	tags := make(types.Tags, len(tc.cfg.Tags))
+	copy(tags, tc.cfg.Tags)
+	return tags
+}
+
+func (tc *TelemetryClient) ServerURL() string {
+	return tc.cfg.TelemetryBaseURL
+}
+
 func (tc *TelemetryClient) CredentialsAccessible() bool {
 	return tc.creds.Accessible()
 }
@@ -247,6 +257,10 @@ func (tc *TelemetryClient) RegistrationPath() string {
 
 func (tc *TelemetryClient) RegistrationAccessible() bool {
 	return tc.reg.Accessible()
+}
+
+func (tc *TelemetryClient) PersistentDatastore() bool {
+	return tc.processor.Persistent()
 }
 
 func errClientNotAuthorized() error {

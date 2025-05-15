@@ -73,6 +73,12 @@ func main() {
 		panic(err)
 	}
 
+	if !tc.PersistentDatastore() && !(opts.nobundles || opts.noreports || opts.nosubmit) {
+		slog.Warn(
+			"Using a non-persistent datastore so generated data items will be submitted",
+		)
+	}
+
 	if !opts.noregister {
 		err = tc.Register()
 		if err != nil {
@@ -124,8 +130,8 @@ func main() {
 		)
 	}
 
-	// create one or more bundles from available data items
-	if !opts.nobundles {
+	// create one or more bundles from available data items if needed/requested
+	if !tc.PersistentDatastore() || !opts.nobundles {
 		if err := tc.CreateBundles(opts.tags); err != nil {
 			slog.Error(
 				"Error creating telemetry bundles",
@@ -137,8 +143,8 @@ func main() {
 		fmt.Println("Created telemetry bundles from pending telemetry data items")
 	}
 
-	// create one or more reports from available bundles
-	if !opts.noreports {
+	// create one or more reports from available bundles if needed/requested
+	if !tc.PersistentDatastore() || !opts.noreports {
 		if err := tc.CreateReports(opts.tags); err != nil {
 			slog.Error(
 				"Error creating telemetry reports",
@@ -151,8 +157,8 @@ func main() {
 	}
 
 	// create one or more reports from available bundles and then
-	// submit available reports.
-	if !opts.nosubmit {
+	// submit available reports if needed/requested.
+	if !tc.PersistentDatastore() || !opts.nosubmit {
 		if err := tc.Submit(); err != nil {
 			slog.Error(
 				"Error submitting telemetry",
