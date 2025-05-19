@@ -18,6 +18,7 @@ type DatabaseStore struct {
 	Conn       *sql.DB
 	Driver     string
 	DataSource string
+	persistent bool
 }
 
 func NewDatabaseStore(dbConfig config.DBConfig) (ds *DatabaseStore, err error) {
@@ -27,26 +28,31 @@ func NewDatabaseStore(dbConfig config.DBConfig) (ds *DatabaseStore, err error) {
 	case "sqlite3":
 		dbPath, opts, optsFound := strings.Cut(dbConfig.Params, "?")
 
-		// ensure that the path to the DB file exists and that we can access it
-		if _, err := os.Stat(dbPath); os.IsNotExist(err) {
-			dirPath := filepath.Dir(dbPath)
-			os.MkdirAll(dirPath, 0700)
+		if !strings.Contains(dbPath, `:memory:`) {
+			if _, err := os.Stat(dbPath); os.IsNotExist(err) {
+				// ensure that the path to the DB file exists and that we can access it
+				dirPath := filepath.Dir(dbPath)
+				os.MkdirAll(dirPath, 0700)
 
-			// create file if it doesn't already exist, without truncating it if it does.
-			file, err := os.OpenFile(dbPath, os.O_RDONLY|os.O_CREATE, 0600)
-			if err != nil {
-				slog.Error(
-					"Failed to open(O_CREATE) SQLite file",
+				// create file if it doesn't already exist, without truncating it if it does.
+				file, err := os.OpenFile(dbPath, os.O_RDONLY|os.O_CREATE, 0600)
+				if err != nil {
+					slog.Error(
+						"Failed to open(O_CREATE) SQLite file",
+						slog.String("dbPath", dbPath),
+						slog.String("error", err.Error()),
+					)
+					return nil, err
+				}
+				file.Close()
+				slog.Debug(
+					"created SQLite file",
 					slog.String("dbPath", dbPath),
-					slog.String("error", err.Error()),
 				)
-				return nil, err
 			}
-			file.Close()
-			slog.Debug(
-				"created SQLite file",
-				slog.String("dbPath", dbPath),
-			)
+
+			// file backed so can be persistent
+			ds.persistent = true
 		}
 
 		// exsure foreign_keys and journal_mode options are specified
@@ -86,7 +92,17 @@ func NewDatabaseStore(dbConfig config.DBConfig) (ds *DatabaseStore, err error) {
 }
 
 func (d DatabaseStore) String() string {
-	return fmt.Sprintf("%p:%s:%s", d.Conn, d.Driver, d.DataSource)
+	var persistent string
+
+	if d.persistent {
+		persistent = ",persistent"
+	}
+
+	return fmt.Sprintf("%p<%s,%s,%s>", d.Conn, d.Driver, d.DataSource, persistent)
+}
+
+func (d DatabaseStore) Persistent() bool {
+	return d.persistent
 }
 
 func (d *DatabaseStore) Setup(dbcfg config.DBConfig) {

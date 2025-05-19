@@ -57,6 +57,10 @@ func (p *TelemetryProcessorImpl) cleanup() error {
 	return p.t.cleanup()
 }
 
+func (p *TelemetryProcessorImpl) Persistent() bool {
+	return p.t.Persistent()
+}
+
 func (p *TelemetryProcessorImpl) ItemCount(bundleIds ...any) (count int, err error) {
 	return p.t.ItemCount(bundleIds...)
 }

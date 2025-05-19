@@ -1,0 +1,44 @@
+# container manager framework
+CNTR_MGR ?= docker
+# docker container name
+CNTR_NAME = \
+  telemetry-tools
+
+# build vars/runtime env vars
+TELEMETRY_USER ?= susetelm
+TELEMETRY_HOME ?= /var/lib/$(TELEMETRY_USER)
+TELEMETRY_ETC ?= /etc/susetelemetry
+LOG_LEVEL ?= info
+TELEMETRY_BASE_URL =
+TELEMETRY_CERT =
+
+# docker container actions
+.PHONY: docker-build docker-generate docker-clean
+
+# Start the telemetry containers using docker
+docker-build: vet
+	$(CNTR_MGR) build \
+		--pull \
+		--tag $(CNTR_NAME) \
+		--tag telemetry/$(CNTR_NAME) \
+		--target $(CNTR_NAME) \
+		--build-arg logLevel=$(LOG_LEVEL) \
+		--build-arg user=$(TELEMETRY_USER) \
+		--build-arg telemetryHomeDir=$(TELEMETRY_HOME) \
+		--build-arg telemetryCfgDir=$(TELEMETRY_ETC) \
+		.
+
+docker-generate: docker-build
+	$(CNTR_MGR) run \
+		--rm \
+		-it \
+		$(if $(strip $(TELEMETRY_BASE_URL)),-e TELEMETRY_BASE_URL=$(TELEMETRY_BASE_URL),) \
+		$(if $(strip $(TELEMETRY_CERT)),-v $(TELEMETRY_CERT):$(TELEMETRY_HOME)/certs/$(notdir $(TELEMETRY_CERT)),) \
+		--name $(CNTR_NAME) $(CNTR_NAME) \
+		generator --tag make=$@ --tag user=$(USER)
+
+docker-clean:
+	$(CNTR_MGR) buildx prune -f --filter="until=24h" && \
+	$(CNTR_MGR) image prune -f
+
+clean:: docker-clean

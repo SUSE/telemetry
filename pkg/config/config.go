@@ -87,7 +87,7 @@ type Config struct {
 	Enabled          bool               `yaml:"enabled"`
 	ClientId         string             `yaml:"client_id"`
 	CustomerId       string             `yaml:"customer_id"`
-	Tags             []string           `yaml:"tags"`
+	Tags             types.Tags         `yaml:"tags"`
 	DataStores       DBConfig           `yaml:"datastores"`
 	ClassOptions     ClassOptionsConfig `yaml:"class_options"`
 	Logging          LogConfig          `yaml:"logging"`
@@ -125,7 +125,7 @@ func NewDefaultConfig() *Config {
 		Enabled:          DEF_CFG_ENABLED,
 		ClientId:         DEF_CFG_CLIENT_ID,
 		CustomerId:       DEF_CFG_CUSTOMER_ID,
-		Tags:             []string{},
+		Tags:             types.Tags{},
 
 		DataStores: DBConfig{
 			Driver: DEF_CFG_DB_DRIVER,
