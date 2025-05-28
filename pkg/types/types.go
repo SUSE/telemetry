@@ -197,6 +197,15 @@ func (c *ClientRegistration) String() string {
 	return string(bytes)
 }
 
+func (c *ClientRegistration) Hashable() string {
+	return fmt.Sprintf(
+		"%s|%s|%s",
+		c.ClientId,
+		c.SystemUUID,
+		c.Timestamp,
+	)
+}
+
 func (c *ClientRegistration) Validate() (err error) {
 	validate := validator.New(validator.WithRequiredStructEnabled())
 
@@ -211,6 +220,14 @@ func (c *ClientRegistration) Validate() (err error) {
 const DEF_INSTID_HASH_METHOD = "sha256"
 
 func (c *ClientRegistration) Hash(inputMethod string) *ClientRegistrationHash {
+	return c.hashValue(inputMethod, c.Hashable())
+}
+
+func (c *ClientRegistration) HashJSON(inputMethod string) *ClientRegistrationHash {
+	return c.hashValue(inputMethod, c.String())
+}
+
+func (c *ClientRegistration) hashValue(inputMethod string, value string) *ClientRegistrationHash {
 	var methodHash hash.Hash
 
 	// this routine is expected to succeed so ensure a valid method is used
@@ -236,7 +253,7 @@ func (c *ClientRegistration) Hash(inputMethod string) *ClientRegistrationHash {
 	case "sha512":
 		methodHash = sha512.New()
 	}
-	methodHash.Write([]byte(c.String()))
+	methodHash.Write([]byte(value))
 
 	// construct the return value
 	return &ClientRegistrationHash{
