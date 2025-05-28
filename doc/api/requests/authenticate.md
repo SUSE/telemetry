@@ -10,6 +10,25 @@ Type: **POST**
 
 Request body type `ClientAuthenticationRequest` defined in [restapi module](../../../pkg/restapi)
 
+### ClientRegistration Hashing
+The `regHash` field in the request body consists of 2 fields, `method`
+and `value`, and represents the hash of the client's `ClientRegistration`
+using the given hashing method.
+
+Originally the input to the hashing method was the JSON encoding of the
+client's `ClientRegistration`, but due to inconsistencies between the
+JSON encoding across different platforms, going forward the input to the
+hashing method with be the 3 fields of `ClientRegistration` joined with
+`|` between each field, e.g. `<clientId>|<systemUUID>|<timestamp>`.
+
+The supported hashing methods that can be specified by the `method` field are:
+* `sha256`
+* `sha512`
+
+### Backwards compatibility
+For backwards compatibility support a `HashJSON()` method is available for
+the `ClientRegistration` to uses the JSON encoded value as the input.
+
 ## Responses
 
 | Code | Description | Example |
