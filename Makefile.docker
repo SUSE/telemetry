@@ -2,7 +2,7 @@
 CNTR_MGR ?= docker
 # docker container name
 CNTR_NAME = \
-  telemetry-tools
+  telemetry-client-tools
 
 # build vars/runtime env vars
 TELEMETRY_USER ?= susetelm
