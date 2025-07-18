@@ -96,9 +96,9 @@ RUN \
   cp ${telemetryBuildDir}/examples/app/app ${telemetryAppDir}/example
 
 #
-# Create the telemetry-tools image.
+# Create the telemetry-client-tools image.
 #
-FROM ${SLE_BCI_REG}/${SLE_BCI_IMAGE}:${SLE_BCI_VERSION} AS telemetry-tools
+FROM ${SLE_BCI_REG}/${SLE_BCI_IMAGE}:${SLE_BCI_VERSION} AS telemetry-client-tools
 
 # args used by this image
 ARG user
